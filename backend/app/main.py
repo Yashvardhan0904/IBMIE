@@ -57,6 +57,13 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
+@app.get("/")
+async def root():
+    return {
+        "name": "Vitalis Backend",
+        "status": "running",
+        "docs": "/docs",
+    }
 
 # Register both clean, separate routers
 app.include_router(reports_router)
