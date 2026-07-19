@@ -10,20 +10,23 @@ from typing import Any, Literal
 import httpx
 import pytesseract
 from pdf2image import convert_from_bytes
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pypdf import PdfReader
 
 from app.core.exceptions import ParserServiceError
 from app.core.logging import get_logger
-# FIXED: Updated absolute import path structure to target app directory natively
 from app.schemas.prescription import PrescriptionExtractionSchema
 
 LOGGER = get_logger(__name__)
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
-SYSTEM_PROMPT = "You extract structured medical lab data with high factual precision and return valid JSON only."
 
-# Define supported internal document classification categories
+SYSTEM_PROMPT = (
+    "You are an advanced clinical data extraction engine. Your job is to extract all health biomarkers, "
+    "lab tests, and patient parameters from the provided text into a structured JSON format. "
+    "Never drop metrics, values, or units. Return valid JSON matching the schema properties exactly."
+)
+
 DocumentType = Literal["lab_report", "prescription"]
 
 
@@ -46,6 +49,14 @@ class MedicalMetric(BaseModel):
         description="The clinical status flag relative to standard reference ranges."
     )
 
+    # FIXED: Type casting layer to safeguard against integers/floats returned by LLM
+    @field_validator("value", mode="before")
+    @classmethod
+    def coerce_value_to_string(cls, v: Any) -> str:
+        if isinstance(v, (int, float)):
+            return str(v)
+        return str(v) if v is not None else ""
+
 
 class LabReportExtractionSchema(BaseModel):
     patient_demographics_found: bool = Field(
@@ -57,7 +68,6 @@ class LabReportExtractionSchema(BaseModel):
 
 
 class ParserService:
-    # FIXED: Type hint return value updated to accept the parsed object output safely
     async def parse_pdf(self, pdf_path: Path, doc_type: DocumentType = "lab_report") -> LabReportExtractionSchema | PrescriptionExtractionSchema:
         return await asyncio.to_thread(self._parse_sync, pdf_path, doc_type)
 
@@ -66,19 +76,11 @@ class ParserService:
             parsed = parse_medical_pdf(pdf_path, doc_type)
         except Exception as exc:
             raise ParserServiceError(str(exc)) from exc
-
-        # FIXED: Return the Pydantic instance directly to match implementation downstream in your services
         return parsed
 
 
 def extract_pdf_text(pdf_path: str | Path) -> str:
-    """
-    Hybrid text extraction: Tries clean native extraction first, 
-    falls back to optimized Tesseract OCR if the file is scanned.
-    """
     pdf_file = Path(pdf_path)
-    
-    # 1. Native Extraction Attempt
     reader = PdfReader(str(pdf_file))
     pages: list[str] = []
 
@@ -89,24 +91,18 @@ def extract_pdf_text(pdf_path: str | Path) -> str:
 
     native_text = "\n\n".join(pages).strip()
     
-    # If we extracted meaningful content, return it directly
     if len(native_text) > 50:
         return native_text
 
-    # 2. Fallback: Run Tesseract OCR on scanned content
     LOGGER.info(f"Native extraction returned insufficient text ({len(native_text)} chars). Falling back to OCR processing.")
     ocr_pages: list[str] = []
     try:
-        # Read file bytes for pdf2image conversion
         file_bytes = pdf_file.read_bytes()
-        # Cap at 150 DPI to protect RAM memory footprint and double execution speed
         images = convert_from_bytes(file_bytes, dpi=150)
-        
         for i, image in enumerate(images):
             page_text = pytesseract.image_to_string(image)
             if page_text.strip():
                 ocr_pages.append(f"--- Page {i+1} ---\n{page_text.strip()}")
-                
     except Exception as e:
         LOGGER.error(f"OCR Execution Error while processing {pdf_file.name}: {str(e)}")
         raise ValueError("Failed to process scanned document text layers.") from e
@@ -129,13 +125,12 @@ def build_prompt_by_type(report_text: str, doc_type: DocumentType) -> str:
     
     return (
         "You are an expert clinical data parsing engine.\n"
-        "Extract only facts that are explicitly present in the document text.\n\n"
-        "Rules:\n"
-        "- Do not guess, infer, or normalize beyond what is visible in the report.\n"
-        "- Preserve the exact measured value as written.\n"
-        "- Keep units exactly as shown, or null if no unit is present.\n"
-        "- Set status to one of NORMAL, HIGH, LOW, or UNSPECIFIED only.\n"
-        "- Return JSON that matches the requested schema exactly.\n\n"
+        "Extract every medical test, biomarker, and health metric present in the document text.\n\n"
+        "Strict Formatting Rules:\n"
+        "- Return a root JSON object with two keys: 'patient_demographics_found' (boolean) and 'metrics' (array of objects).\n"
+        "- Each object inside the 'metrics' list MUST have exactly these keys: 'biomarker_name', 'extracted_abbreviation', 'value', 'unit', and 'status'.\n"
+        "- 'status' must be exactly one of: 'NORMAL', 'HIGH', 'LOW', or 'UNSPECIFIED'.\n"
+        "- Ensure absolutely no biomarkers or numerical results are missing or excluded from the output list.\n\n"
         f"Document text:\n{report_text}"
     )
 
@@ -170,24 +165,32 @@ def call_groq(report_text: str, api_key: str, doc_type: DocumentType) -> str:
 
 
 def normalize_groq_output(content: str) -> dict[str, Any]:
+    """
+    Parses LLM output cleanly. Normalizes structural mapping differences and ensures 
+    safe field representations before explicit validation checks execute.
+    """
     raw = json.loads(content)
-    if isinstance(raw, list):
-        if all(isinstance(item, dict) for item in raw):
-            raw = {"tests": raw}
-        else:
-            raise RuntimeError(f"Groq returned unsupported JSON array: {content}")
-
-    if not isinstance(raw, dict):
-        raise RuntimeError(f"Groq returned unsupported JSON value: {content}")
-
-    if isinstance(raw.get("metrics"), list):
+    
+    # Check if LLM matched our target structure directly
+    if isinstance(raw, dict) and "metrics" in raw and isinstance(raw["metrics"], list):
+        for metric in raw["metrics"]:
+            if isinstance(metric, dict):
+                # Safe fallback to guarantee string data structure mapping
+                if "value" in metric and metric["value"] is not None:
+                    metric["value"] = str(metric["value"])
+                
+                status = str(metric.get("status", "UNSPECIFIED")).upper()
+                metric["status"] = status if status in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"} else "UNSPECIFIED"
         return {
-            "patient_demographics_found": bool(raw.get("patient_demographics_found")),
-            "metrics": raw["metrics"],
+            "patient_demographics_found": bool(raw.get("patient_demographics_found", False)),
+            "metrics": raw["metrics"]
         }
-
+        
+    # Legacy Fallback pipeline parsing
     test_items = raw.get("tests") or raw.get("results") or []
-    if not isinstance(test_items, list):
+    if not isinstance(test_items, list) and isinstance(raw, list):
+        test_items = raw
+    elif not isinstance(test_items, list):
         test_items = []
 
     metrics: list[dict[str, Any]] = []
@@ -195,8 +198,11 @@ def normalize_groq_output(content: str) -> dict[str, Any]:
         if not isinstance(item, dict):
             continue
 
-        test_name = str(item.get("name") or item.get("test") or item.get("biomarker_name") or "").strip()
-        abbreviation = item.get("extracted_abbreviation")
+        test_name = str(item.get("biomarker_name") or item.get("name") or item.get("test") or "").strip()
+        if not test_name:
+            continue
+            
+        abbreviation = item.get("extracted_abbreviation") or item.get("abbreviation")
         match = re.match(r"^(.*)\(([^)]+)\)\s*$", test_name)
         if match:
             test_name = match.group(1).strip()
@@ -206,18 +212,20 @@ def normalize_groq_output(content: str) -> dict[str, Any]:
         if status not in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"}:
             status = "UNSPECIFIED"
 
+        extracted_value = item.get("value") if item.get("value") is not None else item.get("result", "")
+
         metrics.append(
             {
                 "biomarker_name": test_name,
                 "extracted_abbreviation": abbreviation,
-                "value": str(item.get("result", item.get("value", ""))),
+                "value": str(extracted_value),
                 "unit": item.get("unit"),
                 "status": status,
             }
         )
 
     return {
-        "patient_demographics_found": bool(raw.get("patient")),
+        "patient_demographics_found": bool(raw.get("patient_demographics_found", False) or raw.get("patient")),
         "metrics": metrics,
     }
 
