@@ -104,40 +104,6 @@ export default function AuthHero() {
 
         </div>
 
-        {/* Bottom Stats */}
-        <div className="mt-14 flex gap-10">
-
-          <div>
-            <p className="text-3xl font-semibold text-white">
-              AI
-            </p>
-
-            <p className="mt-2 text-sm text-white/55">
-              Intelligent document processing
-            </p>
-          </div>
-
-          <div>
-            <p className="text-3xl font-semibold text-white">
-              24/7
-            </p>
-
-            <p className="mt-2 text-sm text-white/55">
-              Access from any device
-            </p>
-          </div>
-
-          <div>
-            <p className="text-3xl font-semibold text-white">
-              Secure
-            </p>
-
-            <p className="mt-2 text-sm text-white/55">
-              Protected by Firebase Authentication
-            </p>
-          </div>
-
-        </div>
       </div>
     </section>
   );
