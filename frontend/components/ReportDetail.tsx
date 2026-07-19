@@ -7,7 +7,7 @@ import {
   FlaskConical, Pill, MessageCircleHeart, AlertOctagon, Sparkles,
 } from "lucide-react";
 import { T } from "@/lib/tokens";
-import { StatusPill, MeridianLine, Card } from "./UI";
+import { StatusPill, VitalisLine, Card } from "./UI";
 import { MedicalDocument } from "@/lib/types";
 import ExplainChat from "./ExplainChat";
 
@@ -140,7 +140,7 @@ export default function ReportDetail({ doc }: { doc: MedicalDocument }) {
                           <span className="text-[12px]" style={{ color: T.muted, fontFamily: "var(--font-mono)" }}>{r.unit}</span>
                           <StatusPill status={r.status} />
                         </div>
-                        <MeridianLine value={r.value} low={r.reference_range.low} high={r.reference_range.high} status={r.status} />
+                        <VitalisLine value={r.value} low={r.reference_range.low} high={r.reference_range.high} status={r.status} />
                       </div>
                     ))}
                   </div>

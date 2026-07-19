@@ -28,7 +28,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Meridian — AI Health Companion",
+  title: "Vitalis - AI Health Companion",
   description:
     "Reads your reports, explains them simply, and keeps you on track.",
 };
@@ -50,7 +50,7 @@ export default function RootLayout({
         <div className="flex h-screen">
           <Sidebar />
 
-          <main className="flex-1 overflow-y-auto bg-[#F4F6F2] p-8">
+          <main className="flex-1 overflow-y-auto p-8" style={{ background: T.canvas }}>
             {children}
           </main>
         </div>

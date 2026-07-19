@@ -33,10 +33,10 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
           <div>
             <h2 className="text-[15px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-display)" }}>
-              Start with the real IBMIE flow
+              Start with the real Vitalis flow
             </h2>
             <p className="text-[12.5px] mt-1" style={{ color: T.muted }}>
-              Login, add health context, upload reports, then ask IBMIE for simple explanations and routine suggestions.
+              Login, add health context, upload reports, then ask Vitalis for simple explanations and routine suggestions.
             </p>
           </div>
           <Link href="/chat" className="rounded-lg px-3.5 py-2.5 text-[12.5px] font-semibold flex items-center gap-2" style={{ background: T.primary, color: "#fff" }}>
@@ -171,7 +171,7 @@ export default async function DashboardPage() {
             </Link>
             <Link href="/chat" className="flex items-center gap-2.5 rounded-lg px-3.5 py-3" style={{ background: T.canvasAlt }}>
               <MessageCircleHeart size={16} color={T.inkSoft} />
-              <span className="text-[13px] font-medium" style={{ color: T.inkSoft }}>Ask IBMIE</span>
+              <span className="text-[13px] font-medium" style={{ color: T.inkSoft }}>Ask Vitalis</span>
             </Link>
           </div>
         </Card>

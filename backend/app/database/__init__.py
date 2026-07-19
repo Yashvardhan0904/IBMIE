@@ -1,1 +1,1 @@
-"""Database layer for IBMIE."""
+"""Database layer for Vitalis."""

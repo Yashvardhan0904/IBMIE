@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   const persistUser = (user: { displayName: string | null; email: string | null; uid: string }) => {
     localStorage.setItem(
-      "ibmie_user",
+      "vitalis_user",
       JSON.stringify({
         uid: user.uid,
         name: user.displayName || fullName,
@@ -56,10 +56,10 @@ export default function LoginPage() {
     try {
       const user = await loginWithGoogle();
       persistUser(user);
-      const rawProfile = localStorage.getItem("ibmie_health_profile");
+      const rawProfile = localStorage.getItem("vitalis_health_profile");
       const profile = rawProfile ? JSON.parse(rawProfile) : {};
       localStorage.setItem(
-        "ibmie_health_profile",
+        "vitalis_health_profile",
         JSON.stringify({
           ...profile,
           full_name: profile.full_name || user.displayName || "",

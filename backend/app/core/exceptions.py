@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-class IBMIEError(Exception):
+class VitalisError(Exception):
     status_code = 500
     default_detail = "An unexpected error occurred"
 
@@ -10,26 +10,26 @@ class IBMIEError(Exception):
         super().__init__(self.detail)
 
 
-class InvalidPDFError(IBMIEError):
+class InvalidPDFError(VitalisError):
     status_code = 400
     default_detail = "The uploaded file is not a valid PDF"
 
 
-class ParserServiceError(IBMIEError):
+class ParserServiceError(VitalisError):
     status_code = 502
     default_detail = "Parser service failed to process the PDF"
 
 
-class StorageServiceError(IBMIEError):
+class StorageServiceError(VitalisError):
     status_code = 502
     default_detail = "Failed to upload or delete the file in Supabase Storage"
 
 
-class ReportNotFoundError(IBMIEError):
+class ReportNotFoundError(VitalisError):
     status_code = 404
     default_detail = "Report not found"
 
 
-class DatabaseOperationError(IBMIEError):
+class DatabaseOperationError(VitalisError):
     status_code = 500
     default_detail = "Database operation failed"

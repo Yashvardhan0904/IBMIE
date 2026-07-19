@@ -1,1 +1,1 @@
-"""Utility helpers for IBMIE."""
+"""Utility helpers for Vitalis."""

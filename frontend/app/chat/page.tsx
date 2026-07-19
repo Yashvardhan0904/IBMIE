@@ -19,7 +19,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<HealthChatMessage[]>([
     {
       role: "assistant",
-      content: "Hi, I am IBMIE. Upload reports and add your health details, then ask me to explain what is going on in simple language.",
+      content: "Hi, I am Vitalis. Upload reports and add your health details, then ask me to explain what is going on in simple language.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -27,7 +27,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem("ibmie_health_profile");
+    const raw = localStorage.getItem("vitalis_health_profile");
     if (raw) setProfile(JSON.parse(raw));
   }, []);
 
@@ -62,7 +62,7 @@ export default function ChatPage() {
 
   return (
     <div>
-      <TopBar title="Ask IBMIE" subtitle="Chat about your reports, routine, sleep, eating habits, and next practical steps" />
+      <TopBar title="Ask Vitalis" subtitle="Chat about your reports, routine, sleep, eating habits, and next practical steps" />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
         <Card className="overflow-hidden">
@@ -79,7 +79,7 @@ export default function ChatPage() {
                 >
                   <div className="flex items-center gap-2 mb-1 text-[11px] font-semibold opacity-80">
                     {message.role === "user" ? <UserRound size={12} /> : <Bot size={12} />}
-                    {message.role === "user" ? "YOU" : "IBMIE"}
+                    {message.role === "user" ? "YOU" : "Vitalis"}
                   </div>
                   {message.content}
                 </div>
@@ -87,7 +87,7 @@ export default function ChatPage() {
             ))}
             {loading && (
               <div className="text-[12.5px]" style={{ color: T.muted }}>
-                IBMIE is thinking...
+                Vitalis is thinking...
               </div>
             )}
           </div>
@@ -135,7 +135,7 @@ export default function ChatPage() {
             Context used
           </h2>
           <p className="text-[13px] leading-relaxed mb-4" style={{ color: T.inkSoft }}>
-            IBMIE uses your saved health details in this chat. Report retrieval for chat context is the next backend step.
+            Vitalis uses your saved health details in this chat. Report retrieval for chat context is the next backend step.
           </p>
           {profile ? (
             <div className="flex flex-col gap-2 text-[12.5px]" style={{ color: T.inkSoft }}>

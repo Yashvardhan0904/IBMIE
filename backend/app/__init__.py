@@ -1,1 +1,1 @@
-"""IBMIE backend application package."""
+"""Vitalis backend application package."""

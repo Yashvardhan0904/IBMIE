@@ -18,9 +18,9 @@ export function StatusPill({ status }: { status: StatusKey }) {
   );
 }
 
-/* Signature visual: the "Meridian Line" — shows exactly where a value
+/* Signature visual: the "Vitalis Line" — shows exactly where a value
    falls relative to its reference range. */
-export function MeridianLine({
+export function VitalisLine({
   value,
   low,
   high,
@@ -74,7 +74,7 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
         <h1 className="text-[22px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-display)" }}>{title}</h1>
         {subtitle && <p className="text-[13px] mt-0.5" style={{ color: T.muted, fontFamily: "var(--font-body)" }}>{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2 rounded-lg px-3 py-2 w-full max-w-xs" style={{ background: T.card, border: `1px solid ${T.border}` }}>
+      <div className="flex items-center gap-2 rounded-lg px-3 py-2 w-full max-w-xs" style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: "0 10px 30px rgba(17, 31, 29, 0.05)" }}>
         <Search size={15} color={T.muted} />
         <input
           placeholder="Search reports, medicines…"
@@ -88,7 +88,15 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
 
 export function Card({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <div className={`rounded-xl ${className}`} style={{ background: T.card, border: `1px solid ${T.border}`, ...style }}>
+    <div
+      className={`rounded-xl ${className}`}
+      style={{
+        background: T.card,
+        border: `1px solid ${T.border}`,
+        boxShadow: "0 18px 45px rgba(17, 31, 29, 0.06)",
+        ...style,
+      }}
+    >
       {children}
     </div>
   );

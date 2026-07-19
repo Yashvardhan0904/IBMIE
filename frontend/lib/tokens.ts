@@ -1,29 +1,29 @@
-// Meridian design tokens — shared color, spacing and status palette.
+// Vitalis design tokens — shared color, spacing and status palette.
 // Import this anywhere a component needs consistent styling.
 
 export const T = {
-  canvas: "#F4F6F2",
-  canvasAlt: "#ECEFE8",
+  canvas: "#F7F8F5",
+  canvasAlt: "#EEF1EC",
   card: "#FFFFFF",
-  ink: "#132A2A",
-  inkSoft: "#41564F",
-  muted: "#7C8B85",
-  border: "#DCE2D8",
-  borderStrong: "#C6D0C1",
+  ink: "#111F1D",
+  inkSoft: "#3E514C",
+  muted: "#73827D",
+  border: "#DFE6E1",
+  borderStrong: "#C6D3CC",
 
-  primary: "#1F5A52",
-  primaryDeep: "#123D38",
-  primaryTint: "#E4EEEA",
+  primary: "#0F6B5C",
+  primaryDeep: "#093B35",
+  primaryTint: "#E4F1ED",
 
-  low: "#4A6FA5",
+  low: "#4269A6",
   lowTint: "#E9EFF7",
-  high: "#B9791F",
+  high: "#A66D1D",
   highTint: "#FBF0DE",
-  critical: "#B1402C",
+  critical: "#B23A2B",
   criticalTint: "#FBE7E2",
 
-  gold: "#C7A24A",
-  coral: "#C1614A",
+  gold: "#B8943D",
+  coral: "#B85F4A",
   coralTint: "#F8E9E4",
 } as const;
 

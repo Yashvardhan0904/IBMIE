@@ -1,1 +1,1 @@
-"""Pydantic schemas for IBMIE."""
+"""Pydantic schemas for Vitalis."""

@@ -1,96 +1,76 @@
-# IBMIE
+# Vitalis
 
-IBMIE is an AI-assisted health document companion. It lets a user upload lab reports or prescriptions, sends the documents through a FastAPI backend for parsing, stores the structured output in PostgreSQL/Supabase, and displays the extracted health data in a Next.js dashboard.
+Vitalis is a premium AI health companion for personal health context, medical report analysis, medicine reminders, routine tracking, and plain-language guidance.
 
-The current product focus is medical-document intake:
+The app flow is:
 
-- Upload PDF lab reports and prescriptions.
-- Extract structured biomarkers from lab reports.
-- Extract normalized medication details from prescriptions.
-- Show uploaded documents in the frontend dashboard and reports table.
-- Open a document detail page backed by the backend API.
+- User login with Firebase email/password or Google sign-in.
+- Health profile setup with age, sex, height, weight, conditions, medications, allergies, goals, sleep, exercise, eating habits, water intake, reminder preferences, and previous-report upload intent.
+- Report and prescription upload.
+- Backend parsing through FastAPI, Groq, PDF extraction, OCR helpers, and Supabase/Postgres storage.
+- Reports dashboard and detail views.
+- Vitalis AI chat that uses the saved health profile as context.
 
-## Project Structure
+## Structure
 
 ```text
-IBMIE/
-  backend/
-    app/
-      api/              FastAPI route modules
-      core/             config, logging, exceptions, upload validation
-      database/         SQLAlchemy models and database setup
-      schemas/          Pydantic request/response schemas
-      services/         parsing, report, prescription, OCR, storage logic
-      utils/            shared backend helpers
-  frontend/
-    app/                Next.js App Router pages
-    components/         UI, dashboard, upload, report-detail components
-    lib/                frontend types, API adapter, mock/lifestyle data
-  parser.py             standalone parser experiment/helper
-  requirements.txt      Python backend dependencies
+backend/
+  app/
+    api/          FastAPI routes for reports, prescriptions, and chat
+    core/         config, logging, exceptions, validation
+    database/     SQLAlchemy models and database setup
+    schemas/      Pydantic response/request models
+    services/     parser, report, prescription, OCR, and storage logic
+
+frontend/
+  app/            Next.js App Router pages
+  components/     Vitalis UI components
+  lib/            API adapter, Firebase auth, design tokens, types
 ```
 
-## Tech Stack
+## Frontend
 
-- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS, lucide-react icons.
-- Backend: FastAPI, Uvicorn, Pydantic, SQLAlchemy async, asyncpg.
-- AI parsing: Groq chat completions API.
-- PDF parsing: pypdf, pdf2image, pytesseract.
-- Database/storage config: Supabase/Postgres environment variables.
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS
+- Firebase Auth
+- Inter UI font
+- IBM Plex Mono for numeric data
+- lucide-react icons
 
-## Environment
+Main routes:
 
-Create a root `.env` file with these values:
-
-```env
-GROQ_API_KEY=
-SUPABASE_URL=
-SUPABASE_KEY=
-SUPABASE_DATABASE_URI=
-SUPABASE_STORAGE_BUCKET=
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-LOG_LEVEL=INFO
-MAX_UPLOAD_SIZE_MB=25
-REQUEST_TIMEOUT_SECONDS=120
+```text
+/login       Firebase email/password and Google sign-in
+/profile     health profile onboarding
+/upload      report or prescription upload
+/reports     backend-backed document list
+/reports/:id backend-backed document detail
+/chat        Vitalis AI chat
+/track       routine tracking
+/reminders   medicine reminders
 ```
 
-Do not commit real secrets.
+## Backend
 
-## Run Locally
+- FastAPI
+- Uvicorn
+- Pydantic
+- SQLAlchemy async
+- asyncpg
+- Groq chat completions
+- pypdf
+- pdf2image
+- pytesseract
+- Supabase/Postgres
 
-Install backend dependencies:
-
-```powershell
-cd W:\IBMIE
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-Start the backend:
-
-```powershell
-cd W:\IBMIE\backend
-W:\IBMIE\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-Start the frontend:
-
-```powershell
-cd W:\IBMIE\frontend
-npm install
-npm run dev -- --hostname 127.0.0.1 --port 3000
-```
-
-Open:
-
-- Frontend: http://127.0.0.1:3000
-- Backend health: http://127.0.0.1:8000/health
-
-## Backend API
-
-Current endpoints:
+Current API:
 
 ```text
 GET    /health
+POST   /api/v1/chat
+
 POST   /api/v1/reports/upload
 GET    /api/v1/reports
 GET    /api/v1/reports/{report_id}
@@ -102,48 +82,75 @@ GET    /api/v1/prescriptions/{prescription_id}
 DELETE /api/v1/prescriptions/{prescription_id}
 ```
 
-Uploads expect multipart form data with a `file` field. The frontend currently supports PDF uploads because the backend validation is PDF-focused.
+## Environment
+
+Create `.env` in the project root:
+
+```env
+GROQ_API_KEY=
+SUPABASE_URL=
+SUPABASE_KEY=
+SUPABASE_DATABASE_URI=
+SUPABASE_STORAGE_BUCKET=
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+LOG_LEVEL=INFO
+MAX_UPLOAD_SIZE_MB=25
+REQUEST_TIMEOUT_SECONDS=120
+
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+Enable Email/Password and Google sign-in in Firebase Console.
+
+## Run Locally
+
+Backend:
+
+```powershell
+cd <project-root>
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+cd <project-root>\backend
+<project-root>\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Frontend:
+
+```powershell
+cd <project-root>\frontend
+npm install
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Open:
+
+- Frontend: http://127.0.0.1:3000
+- Backend health: http://127.0.0.1:8000/health
 
 ## Current Progress
 
 Completed:
 
-- Backend starts successfully with the populated `.env`.
-- Frontend starts successfully on port `3000`.
-- Backend starts successfully on port `8000`.
-- Backend `/health` returns `{"status":"ok"}`.
-- Report and prescription list endpoints return `200`.
-- Frontend dashboard and reports pages now read from the backend instead of only mock data.
-- Frontend upload flow now sends real multipart PDF uploads to the backend.
-- Added `frontend/lib/api.ts` as a single frontend adapter for backend calls and response mapping.
-- Normalized prescription routes under `/api/v1/prescriptions`.
-- Fixed a backend import issue in the prescription API route.
-- Added missing OCR dependencies to `requirements.txt`.
-- `npx tsc --noEmit` passes.
-- `npm run build` passes.
+- Vitalis branding applied across the frontend and AI chat.
+- Firebase frontend auth added for email/password and Google sign-in.
+- Full health-profile onboarding form added.
+- Frontend upload flow sends PDFs to the backend.
+- Reports and prescriptions are listed from backend APIs.
+- Report detail fetches backend data by id.
+- Vitalis chat endpoint uses Groq and the saved health profile context.
+- Premium visual pass added: Inter font, darker side navigation, refined palette, and card shadows.
+- Removed unused default Next.js public SVG assets and the default frontend README.
+- `npx tsc --noEmit` and `npm run build` have passed after the integration work.
 
 Known gaps:
 
-- `npm run lint` still fails because of existing lint issues in unrelated frontend files, mostly unescaped text and `any` types.
-- Report list responses are lightweight; detailed extracted metrics are fetched only on the detail page.
-- The frontend still contains mock lifestyle, reminders, weekly summary, and habit data.
-- The frontend maps backend report data into the existing UI model with placeholder patient/reference-range fields where the backend does not yet provide those values.
-- OCR fallback requires local Tesseract and Poppler binaries to be installed on the machine, not just the Python packages.
-- The root `.env.example` has been removed in the current working tree and should be restored before sharing the project.
-
-## Useless or Stale Frontend Items
-
-The previous `frontend/README.md` is still the default create-next-app README. It does not describe this project and mentions template content such as Geist, Learn More, and Vercel deployment.
-
-Likely removable frontend template assets:
-
-```text
-frontend/public/next.svg
-frontend/public/vercel.svg
-frontend/public/globe.svg
-frontend/public/file.svg
-frontend/public/window.svg
-```
-
-These assets are not referenced by the current frontend app.
-Still workin
+- Google Fit is not connected yet; it needs separate Google OAuth scopes, Fitness API enablement, and consent handling.
+- Health profile is stored in browser local storage for now; persistence should move to backend/Firebase Firestore.
+- Routine, reminders, and weekly summary still use local/mock data until their backend models are added.
+- OCR fallback requires local Tesseract and Poppler binaries in addition to Python packages.

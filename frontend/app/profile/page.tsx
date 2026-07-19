@@ -62,8 +62,8 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const rawProfile = localStorage.getItem("ibmie_health_profile");
-    const rawUser = localStorage.getItem("ibmie_user");
+    const rawProfile = localStorage.getItem("vitalis_health_profile");
+    const rawUser = localStorage.getItem("vitalis_user");
     const user = rawUser ? JSON.parse(rawUser) : null;
     const stored = rawProfile ? JSON.parse(rawProfile) : {};
     setProfile({
@@ -80,7 +80,7 @@ export default function ProfilePage() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    localStorage.setItem("ibmie_health_profile", JSON.stringify(profile));
+    localStorage.setItem("vitalis_health_profile", JSON.stringify(profile));
     setSaved(true);
   };
 
@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
   return (
     <div>
-      <TopBar title="Health details" subtitle="Answer these once so IBMIE can personalize reports, routines, reminders, and AI chat" />
+      <TopBar title="Health details" subtitle="Answer these once so Vitalis can personalize reports, routines, reminders, and AI chat" />
       <form onSubmit={submit} className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
         <Card className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -190,7 +190,7 @@ export default function ProfilePage() {
               <FileUp size={15} /> Upload previous reports
             </Link>
             <Link className="rounded-lg px-3.5 py-3 text-[13px] font-semibold flex items-center gap-2" style={{ background: T.canvasAlt, color: T.inkSoft }} href="/chat">
-              <MessageCircleHeart size={15} /> Ask IBMIE
+              <MessageCircleHeart size={15} /> Ask Vitalis
             </Link>
           </div>
         </Card>

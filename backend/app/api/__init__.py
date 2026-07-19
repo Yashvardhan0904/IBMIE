@@ -1,1 +1,1 @@
-"""API routers for IBMIE."""
+"""API routers for Vitalis."""

@@ -1,14 +1,14 @@
 
-> frontend@0.1.0 dev
+> vitalis-frontend@0.1.0 dev
 > next dev --hostname 127.0.0.1 --port 3000
 
 ▲ Next.js 16.2.10 (Turbopack)
 - Local:         http://127.0.0.1:3000
 - Network:       http://127.0.0.1:3000
-✓ Ready in 1062ms
+✓ Ready in 854ms
 
- GET / 200 in 3.1s (next.js: 262ms, application-code: 2.8s)
- GET /chat 200 in 207ms (next.js: 26ms, application-code: 181ms)
- GET /login 200 in 289ms (next.js: 119ms, application-code: 170ms)
- GET /profile 200 in 159ms (next.js: 40ms, application-code: 119ms)
- GET /chat 200 in 32ms (next.js: 5ms, application-code: 26ms)
+ GET / 200 in 2.5s (next.js: 176ms, application-code: 2.3s)
+ GET /profile 200 in 167ms (next.js: 57ms, application-code: 109ms)
+ GET /login 200 in 170ms (next.js: 90ms, application-code: 80ms)
+ GET / 200 in 1977ms (next.js: 6ms, application-code: 1971ms)
+ GET /chat 200 in 85ms (next.js: 28ms, application-code: 57ms)

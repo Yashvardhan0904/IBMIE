@@ -10,7 +10,7 @@ import {
   FileStack,
   BellRing,
   CalendarRange,
-  Fingerprint,
+  HeartPulse,
   ShieldAlert,
   ListChecks,
   Target,
@@ -27,7 +27,7 @@ const NAV_TOP: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/login", label: "Login", icon: LogIn },
   { href: "/profile", label: "Health details", icon: UserRoundCog },
-  { href: "/chat", label: "Ask IBMIE", icon: MessageCircleHeart },
+  { href: "/chat", label: "Ask Vitalis", icon: MessageCircleHeart },
 ];
 
 const NAV_LIFESTYLE = [
@@ -69,16 +69,16 @@ export default function Sidebar() {
   return (
     <aside
       className="hidden md:flex flex-col justify-between w-64 shrink-0 p-5 sticky top-0 h-screen"
-      style={{ background: T.primary, backgroundImage: `linear-gradient(180deg, ${T.primary}, ${T.primaryDeep})` }}
+      style={{ background: T.primaryDeep, backgroundImage: "linear-gradient(180deg, #093B35 0%, #071F1C 100%)", boxShadow: "8px 0 32px rgba(9, 59, 53, 0.16)" }}
     >
       <div>
         <div className="flex items-center gap-2.5 px-1 mb-8">
           <div className="h-8 w-8 rounded-md flex items-center justify-center" style={{ background: "rgba(244,246,242,0.14)" }}>
-            <Fingerprint size={18} color="#F4F6F2" strokeWidth={2.2} />
+            <HeartPulse size={18} color="#F4F6F2" strokeWidth={2.2} />
           </div>
           <div style={{ fontFamily: "var(--font-display)" }}>
-            <div className="text-[15px] font-semibold" style={{ color: "#F4F6F2" }}>Meridian</div>
-            <div className="text-[10.5px] tracking-wide" style={{ color: "rgba(244,246,242,0.55)" }}>LIFESTYLE & HEALTH INTELLIGENCE</div>
+            <div className="text-[16px] font-semibold" style={{ color: "#F4F6F2" }}>Vitalis</div>
+            <div className="text-[10.5px] tracking-wide" style={{ color: "rgba(244,246,242,0.55)" }}>PERSONAL HEALTH INTELLIGENCE</div>
           </div>
         </div>
 

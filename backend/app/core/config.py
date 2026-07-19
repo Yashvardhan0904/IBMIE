@@ -18,7 +18,7 @@ if env_file.exists():
 class Settings(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    app_name: str = "IBMIE Backend"
+    app_name: str = "Vitalis Backend"
     app_version: str = "0.1.0"
     environment: str = Field(default="development")
     supabase_url: str
@@ -54,7 +54,7 @@ class Settings(BaseModel):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
-        app_name=os.getenv("APP_NAME", "IBMIE Backend"),
+        app_name=os.getenv("APP_NAME", "Vitalis Backend"),
         app_version=os.getenv("APP_VERSION", "0.1.0"),
         environment=os.getenv("ENVIRONMENT", "development"),
         supabase_url=os.getenv("SUPABASE_URL", ""),

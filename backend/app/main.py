@@ -11,7 +11,7 @@ from app.api.reports import router as reports_router
 from app.api.prescriptions import router as prescriptions_router  # <-- Import the new router
 from app.api.chat import router as chat_router
 from app.core.config import get_settings
-from app.core.exceptions import IBMIEError
+from app.core.exceptions import VitalisError
 from app.core.logging import configure_logging, get_logger
 from app.database.database import init_db
 
@@ -22,10 +22,10 @@ LOGGER = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    LOGGER.info("Starting IBMIE backend")
+    LOGGER.info("Starting Vitalis backend")
     await init_db()
     yield
-    LOGGER.info("Shutting down IBMIE backend")
+    LOGGER.info("Shutting down Vitalis backend")
 
 
 app = FastAPI(
@@ -43,8 +43,8 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(IBMIEError)
-async def ibmie_error_handler(_: Request, exc: IBMIEError) -> JSONResponse:
+@app.exception_handler(VitalisError)
+async def vitalis_error_handler(_: Request, exc: VitalisError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 

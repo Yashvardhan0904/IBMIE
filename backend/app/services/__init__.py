@@ -1,1 +1,1 @@
-"""Business services for IBMIE."""
+"""Business services for Vitalis."""
