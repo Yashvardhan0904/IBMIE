@@ -5,14 +5,3 @@
  Detected additional lockfiles: 
    * W:\IBMIE\frontend\package-lock.json
 
-Error: Route "/reports/[id]" used `params.id`. `params` is a Promise and must be unwrapped with `await` or `React.use()` before accessing its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
-    at <unknown> (app\reports\[id]\page.tsx:6:48)
-    at Array.find (<anonymous>)
-    at ReportPage (app\reports\[id]\page.tsx:6:20)
-  4 |
-  5 | export default function ReportPage({ params }: { params: { id: string } }) {
-> 6 |   const doc = DOCS.find((d) => d.id === params.id);
-    |                                                ^
-  7 |   if (!doc) notFound();
-  8 |   return <ReportDetail doc={doc} />;
-  9 | }

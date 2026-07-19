@@ -4,11 +4,26 @@ import { MedicalDocument } from "./types";
 export type DocumentKind = "lab_report" | "prescription";
 
 export type HealthProfile = {
-  diseases: string;
+  full_name: string;
+  age: string;
+  date_of_birth: string;
+  biological_sex: string;
+  height: string;
+  weight: string;
   sleep_schedule: string;
+  sleep_hours: string;
   daily_routine: string;
   eating_habits: string;
+  water_intake: string;
+  exercise_frequency: string;
+  diseases: string;
+  medications: string;
+  allergies: string;
   goals: string;
+  reminder_channels: string;
+  preferred_medicine_times: string;
+  wants_previous_reports_upload: string;
+  google_fit_interest: string;
 };
 
 export type HealthChatMessage = {

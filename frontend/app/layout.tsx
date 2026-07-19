@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import {
-  Space_Grotesk,
-  IBM_Plex_Sans,
+  Inter,
   IBM_Plex_Mono,
 } from "next/font/google";
 
@@ -10,15 +9,15 @@ import { T } from "@/lib/tokens";
 
 import "./globals.css";
 
-const display = Space_Grotesk({
+const display = Inter({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["500", "600", "700", "800"],
   variable: "--font-display",
 });
 
-const body = IBM_Plex_Sans({
+const body = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-body",
 });
 

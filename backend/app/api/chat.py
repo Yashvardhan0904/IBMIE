@@ -21,11 +21,26 @@ def _profile_context(request: ChatRequest) -> str:
     profile = request.profile
     return "\n".join(
         [
+            f"Full name: {profile.full_name or 'not provided'}",
+            f"Age: {profile.age or 'not provided'}",
+            f"Date of birth: {profile.date_of_birth or 'not provided'}",
+            f"Biological sex: {profile.biological_sex or 'not provided'}",
+            f"Height: {profile.height or 'not provided'}",
+            f"Weight: {profile.weight or 'not provided'}",
             f"Known diseases/conditions: {profile.diseases or 'not provided'}",
+            f"Current medications: {profile.medications or 'not provided'}",
+            f"Allergies: {profile.allergies or 'not provided'}",
             f"Sleep schedule: {profile.sleep_schedule or 'not provided'}",
+            f"Sleep hours: {profile.sleep_hours or 'not provided'}",
             f"Daily routine: {profile.daily_routine or 'not provided'}",
             f"Eating habits: {profile.eating_habits or 'not provided'}",
+            f"Water intake: {profile.water_intake or 'not provided'}",
+            f"Exercise frequency: {profile.exercise_frequency or 'not provided'}",
             f"User goals: {profile.goals or 'not provided'}",
+            f"Reminder channels: {profile.reminder_channels or 'not provided'}",
+            f"Preferred medicine reminder times: {profile.preferred_medicine_times or 'not provided'}",
+            f"Wants previous report upload: {profile.wants_previous_reports_upload or 'not provided'}",
+            f"Google Fit interest: {profile.google_fit_interest or 'not provided'}",
         ]
     )
 

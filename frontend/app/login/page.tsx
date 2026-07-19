@@ -2,51 +2,115 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogIn, UserRound } from "lucide-react";
+import { LogIn, Mail, UserPlus } from "lucide-react";
 import { TopBar, Card } from "@/components/UI";
 import { T } from "@/lib/tokens";
+import { loginWithEmail, loginWithGoogle, registerWithEmail } from "@/lib/firebase";
+
+type Mode = "login" | "register";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submit = (event: FormEvent) => {
+  const persistUser = (user: { displayName: string | null; email: string | null; uid: string }) => {
+    localStorage.setItem(
+      "ibmie_user",
+      JSON.stringify({
+        uid: user.uid,
+        name: user.displayName || fullName,
+        email: user.email,
+        provider: "firebase",
+      }),
+    );
+  };
+
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    localStorage.setItem("ibmie_user", JSON.stringify({ name, email }));
-    router.push("/profile");
+    setLoading(true);
+    setError(null);
+
+    try {
+      const user =
+        mode === "register"
+          ? await registerWithEmail(fullName, email, password)
+          : await loginWithEmail(email, password);
+      persistUser(user);
+      router.push("/profile");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signInGoogle = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const user = await loginWithGoogle();
+      persistUser(user);
+      const rawProfile = localStorage.getItem("ibmie_health_profile");
+      const profile = rawProfile ? JSON.parse(rawProfile) : {};
+      localStorage.setItem(
+        "ibmie_health_profile",
+        JSON.stringify({
+          ...profile,
+          full_name: profile.full_name || user.displayName || "",
+        }),
+      );
+      router.push("/profile");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="max-w-2xl">
-      <TopBar title="User login" subtitle="Start a personal health companion session" />
+      <TopBar title="User login" subtitle="Sign in before building your personal health context" />
       <Card className="p-6">
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ background: T.primaryTint }}>
-              <UserRound size={18} color={T.primary} />
-            </div>
-            <div>
-              <h2 className="text-[16px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-display)" }}>
-                Tell IBMIE who is using this dashboard
-              </h2>
-              <p className="text-[12.5px]" style={{ color: T.muted }}>
-                This is a local demo login until backend auth is added.
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 rounded-lg p-1 w-fit mb-5" style={{ background: T.canvasAlt }}>
+          {[
+            { key: "login", label: "Login" },
+            { key: "register", label: "Create account" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setMode(item.key as Mode)}
+              className="rounded-md px-3.5 py-2 text-[12.5px] font-semibold"
+              style={{
+                background: mode === item.key ? T.card : "transparent",
+                color: mode === item.key ? T.primary : T.muted,
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-semibold" style={{ color: T.muted }}>NAME</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="rounded-lg px-3.5 py-3 outline-none text-[13px]"
-              style={{ border: `1px solid ${T.border}`, color: T.ink }}
-              placeholder="Patient name"
-              required
-            />
-          </label>
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          {mode === "register" && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-semibold" style={{ color: T.muted }}>FULL NAME</span>
+              <input
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+                className="rounded-lg px-3.5 py-3 outline-none text-[13px]"
+                style={{ border: `1px solid ${T.border}`, color: T.ink }}
+                placeholder="Your full name"
+                required
+              />
+            </label>
+          )}
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold" style={{ color: T.muted }}>EMAIL</span>
@@ -61,12 +125,43 @@ export default function LoginPage() {
             />
           </label>
 
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold" style={{ color: T.muted }}>PASSWORD</span>
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="rounded-lg px-3.5 py-3 outline-none text-[13px]"
+              style={{ border: `1px solid ${T.border}`, color: T.ink }}
+              placeholder="Minimum 6 characters"
+              type="password"
+              required
+            />
+          </label>
+
+          {error && (
+            <div className="rounded-lg p-3 text-[12.5px]" style={{ background: T.criticalTint, color: T.critical }}>
+              {error}
+            </div>
+          )}
+
           <button
             type="submit"
-            className="mt-2 rounded-lg py-3 text-[13px] font-semibold flex items-center justify-center gap-2"
+            disabled={loading}
+            className="mt-1 rounded-lg py-3 text-[13px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
             style={{ background: T.primary, color: "#fff" }}
           >
-            <LogIn size={16} /> Continue to health details
+            {mode === "register" ? <UserPlus size={16} /> : <LogIn size={16} />}
+            {mode === "register" ? "Create account" : "Login"}
+          </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={signInGoogle}
+            className="rounded-lg py-3 text-[13px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: T.canvasAlt, color: T.ink }}
+          >
+            <Mail size={16} /> Continue with Google
           </button>
         </form>
       </Card>
