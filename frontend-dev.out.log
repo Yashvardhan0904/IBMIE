@@ -43,3 +43,13 @@
  GET /upload 200 in 656ms (next.js: 358ms, application-code: 298ms)
  GET /reports 200 in 2.7s (next.js: 191ms, application-code: 2.5s)
  GET / 200 in 3.4s (next.js: 16ms, application-code: 3.4s)
+ GET / 200 in 2.9s (next.js: 110ms, application-code: 2.8s)
+✓ Compiled in 729ms
+ GET / 200 in 1658ms (next.js: 421ms, application-code: 1237ms)
+ GET / 200 in 866ms (next.js: 253ms, application-code: 613ms)
+ GET / 200 in 742ms (next.js: 20ms, application-code: 722ms)
+ GET / 200 in 612ms (next.js: 20ms, application-code: 592ms)
+ GET / 200 in 755ms (next.js: 28ms, application-code: 727ms)
+ GET / 200 in 759ms (next.js: 112ms, application-code: 648ms)
+ GET / 200 in 467ms (next.js: 25ms, application-code: 442ms)
+ GET / 200 in 773ms (next.js: 210ms, application-code: 563ms)

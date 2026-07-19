@@ -3,6 +3,19 @@ import { MedicalDocument } from "./types";
 
 export type DocumentKind = "lab_report" | "prescription";
 
+export type HealthProfile = {
+  diseases: string;
+  sleep_schedule: string;
+  daily_routine: string;
+  eating_habits: string;
+  goals: string;
+};
+
+export type HealthChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 type BackendPagination = {
   page: number;
   page_size: number;
@@ -300,4 +313,35 @@ export async function uploadMedicalDocument(file: File, kind: DocumentKind) {
   }
 
   return { id: payload.prescription.id, type: "prescription" as const };
+}
+
+export async function askHealthChat({
+  message,
+  profile,
+  recentReportSummary,
+  history,
+}: {
+  message: string;
+  profile?: HealthProfile | null;
+  recentReportSummary?: string;
+  history: HealthChatMessage[];
+}) {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      profile,
+      recent_report_summary: recentReportSummary,
+      history,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Chat failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { reply: string };
+  return payload.reply;
 }
