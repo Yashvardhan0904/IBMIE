@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppShell from "@/components/AppShell";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Vitalis",
-  description:
-    "AI-powered health records companion.",
+  description: "AI-powered health records companion.",
+  icons: {
+    icon: "/brand/logoc.png",
+    shortcut: "/brand/logoc.png",
+    apple: "/brand/logoc.png",
+  },
 };
 
 export default function RootLayout({
@@ -32,7 +38,7 @@ export default function RootLayout({
           fontFamily: "Inter, sans-serif",
         }}
       >
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

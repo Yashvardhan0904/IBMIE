@@ -69,12 +69,12 @@ export function VitalisLine({
 
 export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="flex items-center justify-between mb-7 gap-4 flex-wrap">
+    <div className="mb-9 flex items-end justify-between gap-6 flex-wrap">
       <div>
-        <h1 className="text-[22px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-display)" }}>{title}</h1>
-        {subtitle && <p className="text-[13px] mt-0.5" style={{ color: T.muted, fontFamily: "var(--font-body)" }}>{subtitle}</p>}
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl" style={{ color: T.ink, fontFamily: "var(--font-display)" }}>{title}</h1>
+        {subtitle && <p className="mt-2 max-w-2xl text-sm leading-6" style={{ color: T.muted, fontFamily: "var(--font-body)" }}>{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2 rounded-lg px-3 py-2 w-full max-w-xs" style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: "0 10px 30px rgba(17, 31, 29, 0.05)" }}>
+      <div className="flex h-11 w-full max-w-xs items-center gap-2 rounded-2xl px-4" style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: "0 10px 30px rgba(17, 31, 29, 0.05)" }}>
         <Search size={15} color={T.muted} />
         <input
           placeholder="Search reports, medicines…"
@@ -89,7 +89,7 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
 export function Card({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
     <div
-      className={`rounded-xl ${className}`}
+      className={`rounded-3xl transition-all duration-300 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-1 hover:shadow-lg ${className}`}
       style={{
         background: T.card,
         border: `1px solid ${T.border}`,

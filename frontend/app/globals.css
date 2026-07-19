@@ -13,8 +13,8 @@ body {
 
 body {
   font-family: var(--font-body), sans-serif;
-  background: #050808;
-  color: white;
+  background: #F6FBF8;
+  color: #1F2937;
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -35,8 +35,8 @@ a {
 }
 
 ::selection {
-  background: rgba(16, 185, 129, 0.35);
-  color: white;
+  background: rgba(20, 184, 166, 0.25);
+  color: #1F2937;
 }
 
 /* ======================================== */
