@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   BellRing,
   CalendarRange,
   ChevronLeft,
@@ -19,6 +18,7 @@ import {
   TrendingUp,
   UploadCloud,
   UserRoundCog,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -144,8 +144,8 @@ function NavLink({
         transition-colors
         duration-200
         ${
-          active
-            ? "bg-[#166534] text-white shadow-md shadow-emerald-900/10"
+            active
+            ? "bg-[#0F766E] text-white shadow-md shadow-teal-900/10"
             : "text-slate-600 hover:bg-white/70"
         }
       `}
@@ -208,12 +208,12 @@ export default function Sidebar() {
         overflow-hidden
         border-r
         border-slate-200
-        bg-[#E4EFE8]
+        bg-[#E7F3ED]
         shadow-[0_8px_32px_rgba(15,23,42,0.05)]
         transition-[width]
         duration-500
         ease-[cubic-bezier(.22,1,.36,1)]
-        ${collapsed ? "w-[76px]" : "w-[280px]"}
+        ${collapsed ? "w-[96px]" : "w-[280px]"}
       `}
     >
       <div
@@ -394,9 +394,9 @@ export default function Sidebar() {
           {/* Icon */}
 
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100">
-            <Activity
+            <ShieldCheck
               size={20}
-              className="text-emerald-600 transition-transform duration-200 group-hover:scale-105"
+              className="text-[#0F766E] transition-transform duration-200 group-hover:scale-105"
             />
           </div>
 
@@ -417,19 +417,15 @@ export default function Sidebar() {
             >
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-slate-900">
-                  Health Sync
+                  Private by design
                 </h4>
 
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                  <span className="text-[11px] font-medium text-emerald-700">
-                    Live
-                  </span>
                 </div>
               </div>
 
               <p className="mt-1 text-xs text-slate-500">
-                Connected to Google Fit
+                Your health space stays yours
               </p>
             </div>
           </div>

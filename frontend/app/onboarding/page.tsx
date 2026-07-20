@@ -39,7 +39,13 @@ export interface OnboardingData {
 
   reminderMethods: string[];
 
-  reports: File[];
+  reports: UploadedReport[];
+}
+
+export interface UploadedReport {
+  id: string;
+  file: File;
+  type: "Medical Report" | "Prescription" | "Lab Report" | "Scan / Imaging" | "Other";
 }
 
 export default function OnboardingPage() {

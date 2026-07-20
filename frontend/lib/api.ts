@@ -106,14 +106,17 @@ type UploadResponse =
   | { message: string; report: BackendReportRead }
   | { message: string; prescription: BackendPrescriptionRead };
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not defined. Please configure it in your environment variables."
+  );
+}
 
 export function getApiBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.API_BASE_URL ||
-    DEFAULT_API_BASE_URL
-  ).replace(/\/$/, "");
+  return API_BASE_URL!.replace(/\/$/, "");
 }
 
 async function apiFetch<T>(path: string): Promise<T | null> {

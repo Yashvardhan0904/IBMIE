@@ -2,18 +2,18 @@
 // Import this anywhere a component needs consistent styling.
 
 export const T = {
-  canvas: "#F7F8F5",
-  canvasAlt: "#EEF1EC",
+  canvas: "#F6FBF8",
+  canvasAlt: "#E7F3ED",
   card: "#FFFFFF",
-  ink: "#111F1D",
-  inkSoft: "#3E514C",
-  muted: "#73827D",
-  border: "#DFE6E1",
-  borderStrong: "#C6D3CC",
+  ink: "#1F2937",
+  inkSoft: "#475569",
+  muted: "#64748B",
+  border: "#D8E5DD",
+  borderStrong: "#C5D8CC",
 
-  primary: "#0F6B5C",
-  primaryDeep: "#093B35",
-  primaryTint: "#E4F1ED",
+  primary: "#0F766E",
+  primaryDeep: "#115E59",
+  primaryTint: "#E7F3ED",
 
   low: "#4269A6",
   lowTint: "#E9EFF7",

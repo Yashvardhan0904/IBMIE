@@ -1,5 +1,12 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  updateProfile,
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -36,5 +43,21 @@ export const googleProvider =
 
 googleProvider.addScope("profile");
 googleProvider.addScope("email");
+
+export async function loginWithEmail(email: string, password: string) {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
+}
+
+export async function registerWithEmail(name: string, email: string, password: string) {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  if (name.trim()) await updateProfile(result.user, { displayName: name.trim() });
+  return result.user;
+}
+
+export async function loginWithGoogle() {
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+}
 
 export default app;
