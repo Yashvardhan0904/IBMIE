@@ -7,3 +7,10 @@ look at the ouput
 the ocr working fine but this is not 
 
 things are there in backend and i see a rport extracted but the chat is unaware it has no knowledge of what we had extrracted it still blindly follows the thing we gave as input and the medical conditon coloum
+
+
+
+explain me the last report is broken and we need to improve the chat thing we have two things ocr and chat agent 
+
+
+so many dummy values 
