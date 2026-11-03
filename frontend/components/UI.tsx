@@ -1,10 +1,10 @@
 "use client";
 
-import { Search, ArrowDownCircle, CheckCircle2, AlertTriangle, AlertOctagon } from "lucide-react";
+import { Search, ArrowDownCircle, CheckCircle2, AlertTriangle, AlertOctagon, CircleHelp } from "lucide-react";
 import { T, STATUS_STYLE, StatusKey } from "@/lib/tokens";
 
 export function StatusPill({ status }: { status: StatusKey }) {
-  const icons = { LOW: ArrowDownCircle, NORMAL: CheckCircle2, HIGH: AlertTriangle, CRITICAL: AlertOctagon };
+  const icons = { LOW: ArrowDownCircle, NORMAL: CheckCircle2, HIGH: AlertTriangle, CRITICAL: AlertOctagon, UNSPECIFIED: CircleHelp };
   const s = STATUS_STYLE[status];
   const Icon = icons[status];
   return (
@@ -26,11 +26,19 @@ export function VitalisLine({
   high,
   status,
 }: {
-  value: number;
+  value: number | null;
   low: number | null;
   high: number | null;
   status: StatusKey;
 }) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return (
+      <div className="text-[11.5px]" style={{ color: T.muted, fontFamily: "var(--font-body)" }}>
+        No numeric value to plot
+      </div>
+    );
+  }
+
   const color = STATUS_STYLE[status].fg;
 
   const hasLow = typeof low === "number";

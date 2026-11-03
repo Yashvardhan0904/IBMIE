@@ -27,11 +27,12 @@ export const T = {
   coralTint: "#F8E9E4",
 } as const;
 
-export type StatusKey = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
+export type StatusKey = "LOW" | "NORMAL" | "HIGH" | "CRITICAL" | "UNSPECIFIED";
 
 export const STATUS_STYLE: Record<StatusKey, { bg: string; fg: string; label: string }> = {
   LOW: { bg: T.lowTint, fg: T.low, label: "Low" },
   NORMAL: { bg: T.primaryTint, fg: T.primary, label: "Normal" },
   HIGH: { bg: T.highTint, fg: T.high, label: "High" },
   CRITICAL: { bg: T.criticalTint, fg: T.critical, label: "Critical" },
+  UNSPECIFIED: { bg: T.canvasAlt, fg: T.muted, label: "Not validated" },
 };

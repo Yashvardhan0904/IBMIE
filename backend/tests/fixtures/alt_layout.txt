@@ -1,0 +1,15 @@
+ALTERNATE DIAGNOSTIC CENTRE
+Name of Patient: Priya Verma
+Age: 58 Years
+Gender: F
+MRN: ALT-00042
+Referred By: Dr. R. Nair
+BP: 118 / 76 mm Hg
+Temp: 98.9 deg F
+Pulse: 92 /min
+Resp rate: 18 /min
+SpO2: 97 percent
+Hb: 12.5 gm/dL
+TLC: 1,200 cells/uL
+Neutrophils: 55 percent
+CRP: <5 mg/L

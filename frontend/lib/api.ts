@@ -1,5 +1,10 @@
 import { StatusKey } from "./tokens";
-import { MedicalDocument } from "./types";
+import {
+  DocumentConfidences,
+  LabResult,
+  MedicalDocument,
+  Patient,
+} from "./types";
 
 export type DocumentKind = "lab_report" | "prescription";
 
@@ -46,16 +51,64 @@ type BackendReportListItem = {
   uploaded_at: string;
 };
 
+type BackendRangeBounds = {
+  low?: number | null;
+  high?: number | null;
+};
+
+type BackendMetric = {
+  biomarker_name?: string;
+  extracted_abbreviation?: string | null;
+  value?: string | number | null;
+  value_raw?: string | null;
+  value_normalized?: string | null;
+  numeric_value?: number | null;
+  systolic?: number | null;
+  diastolic?: number | null;
+  systolic_status?: string | null;
+  diastolic_status?: string | null;
+  unit?: string | null;
+  unit_raw?: string | null;
+  comparator?: string | null;
+  reference_range?: {
+    low?: number | null;
+    high?: number | null;
+    unit?: string | null;
+    source?: string | null;
+    systolic?: BackendRangeBounds | null;
+    diastolic?: BackendRangeBounds | null;
+  } | null;
+  status?: string | null;
+  status_source?: string | null;
+  confidence?: number | null;
+  canonical_key?: string | null;
+};
+
+type BackendPatient = {
+  name?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  patient_id?: string | null;
+  referring_physician?: string | null;
+};
+
+type BackendConfidence = {
+  ocr?: number | null;
+  extraction?: number | null;
+  completeness?: number | null;
+};
+
 type BackendReportRead = BackendReportListItem & {
   report_json: {
+    patient?: BackendPatient | null;
     patient_demographics_found?: boolean;
-    metrics?: Array<{
-      biomarker_name?: string;
-      extracted_abbreviation?: string | null;
-      value?: string | number | null;
-      unit?: string | null;
-      status?: string | null;
-    }>;
+    metrics?: BackendMetric[];
+    confidence?: BackendConfidence | null;
+    source?: {
+      used_ocr?: boolean;
+      ocr_confidence?: number | null;
+      page_count?: number;
+    } | null;
   };
 };
 
@@ -107,11 +160,11 @@ type UploadResponse =
   | { message: string; prescription: BackendPrescriptionRead };
 
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 if (!API_BASE_URL) {
   throw new Error(
-    "NEXT_PUBLIC_API_URL is not defined. Please configure it in your environment variables."
+    "NEXT_PUBLIC_API_BASE_URL is not defined. Please configure it in your environment variables."
   );
 }
 
@@ -144,33 +197,88 @@ function titleFromFilename(filename: string) {
 }
 
 function normalizeStatus(status: string | null | undefined): StatusKey {
-  const normalized = String(status || "NORMAL").toUpperCase();
+  const normalized = String(status || "UNSPECIFIED").toUpperCase();
   if (normalized === "LOW" || normalized === "HIGH" || normalized === "CRITICAL") {
     return normalized;
   }
-  return "NORMAL";
+  if (normalized === "NORMAL") {
+    return "NORMAL";
+  }
+  return "UNSPECIFIED";
 }
 
-function numericValue(value: string | number | null | undefined) {
+function numberOrNull(value: number | string | null | undefined): number | null {
   if (typeof value === "number") {
-    return value;
+    return Number.isFinite(value) ? value : null;
   }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const cleaned = String(value).replace(/,/g, "");
+  const match = cleaned.match(/-?\d+(?:\.\d+)?/);
+  return match && Number.isFinite(Number(match[0])) ? Number(match[0]) : null;
+}
 
-  const match = String(value ?? "").match(/-?\d+(\.\d+)?/);
-  return match ? Number(match[0]) : 0;
+function numericValue(value: string | number | null | undefined): number | null {
+  return numberOrNull(value);
+}
+
+function displayValue(metric: BackendMetric): string {
+  const systolic = numberOrNull(metric.systolic);
+  const diastolic = numberOrNull(metric.diastolic);
+  if (systolic !== null && diastolic !== null) {
+    return `${systolic}/${diastolic}`;
+  }
+  if (metric.value_normalized) {
+    return String(metric.value_normalized);
+  }
+  if (metric.value_raw) {
+    return String(metric.value_raw);
+  }
+  if (metric.value !== null && metric.value !== undefined) {
+    return String(metric.value);
+  }
+  return "—";
 }
 
 function uploadedDate(value: string) {
   return value ? value.slice(0, 10) : "";
 }
 
-function placeholderPatient() {
+function emptyPatient(): Patient {
   return {
-    name: "Patient",
-    age: 0,
-    gender: "Not specified",
-    patientId: "Not specified",
-    referringDoctor: "Not specified",
+    name: null,
+    age: null,
+    gender: null,
+    patientId: null,
+    referringDoctor: null,
+  };
+}
+
+function mapPatient(raw: BackendPatient | null | undefined): Patient {
+  if (!raw) {
+    return emptyPatient();
+  }
+  return {
+    name: raw.name ?? null,
+    age: typeof raw.age === "number" ? raw.age : null,
+    gender: raw.gender ?? null,
+    patientId: raw.patient_id ?? null,
+    referringDoctor: raw.referring_physician ?? null,
+  };
+}
+
+function emptyConfidences(): DocumentConfidences {
+  return { ocr: null, extraction: null, completeness: null };
+}
+
+function mapConfidences(
+  raw: BackendConfidence | null | undefined,
+): DocumentConfidences {
+  return {
+    ocr: numberOrNull(raw?.ocr),
+    extraction: numberOrNull(raw?.extraction),
+    completeness: numberOrNull(raw?.completeness),
   };
 }
 
@@ -181,9 +289,10 @@ function mapReportListItem(item: BackendReportListItem): MedicalDocument {
     title: titleFromFilename(item.original_filename),
     category: "Lab report",
     date: uploadedDate(item.uploaded_at),
-    confidence: 1,
+    confidence: null,
+    confidences: emptyConfidences(),
     ocrUsed: false,
-    patient: placeholderPatient(),
+    patient: emptyPatient(),
     results: [],
     explanations: [],
     overallSummary: "Open this report to view extracted biomarkers from the backend.",
@@ -192,39 +301,102 @@ function mapReportListItem(item: BackendReportListItem): MedicalDocument {
 }
 
 function mapReportDetail(report: BackendReportRead): MedicalDocument {
-  const metrics = report.report_json?.metrics || [];
-  const results = metrics.map((metric) => {
+  const reportJson = report.report_json || {};
+  const metrics = reportJson.metrics || [];
+  const confidences = mapConfidences(reportJson.confidence);
+
+  const results: LabResult[] = metrics.map((metric) => {
     const status = normalizeStatus(metric.status);
+    const referenceRange = metric.reference_range || {};
+    const systolic = numberOrNull(metric.systolic);
+    const diastolic = numberOrNull(metric.diastolic);
+    const numeric =
+      numberOrNull(metric.numeric_value) ??
+      numericValue(metric.value) ??
+      systolic;
+
     return {
       test_name: metric.biomarker_name || "Unnamed biomarker",
       category: "Extracted biomarkers",
-      value: numericValue(metric.value),
-      unit: metric.unit || "",
-      reference_range: { low: null, high: null },
+      value: numeric,
+      value_display: displayValue(metric),
+      systolic,
+      diastolic,
+      unit: metric.unit || metric.unit_raw || "",
+      reference_range: {
+        low: numberOrNull(referenceRange.low),
+        high: numberOrNull(referenceRange.high),
+        unit: referenceRange.unit ?? null,
+        source: referenceRange.source ?? null,
+        systolic: referenceRange.systolic
+          ? {
+              low: numberOrNull(referenceRange.systolic.low),
+              high: numberOrNull(referenceRange.systolic.high),
+            }
+          : null,
+        diastolic: referenceRange.diastolic
+          ? {
+              low: numberOrNull(referenceRange.diastolic.low),
+              high: numberOrNull(referenceRange.diastolic.high),
+            }
+          : null,
+      },
       status,
-      flag: status === "NORMAL" ? "normal" : "abnormal",
+      flag:
+        status === "NORMAL"
+          ? "normal"
+          : status === "UNSPECIFIED"
+            ? "unvalidated"
+            : "abnormal",
       sample_type: "",
       remarks: metric.extracted_abbreviation
         ? `Shown as ${metric.extracted_abbreviation}`
         : "",
+      confidence: numberOrNull(metric.confidence),
     };
   });
-  const abnormalResults = results.filter((result) => result.status !== "NORMAL");
+
+  const abnormalResults = results.filter(
+    (result) => result.status === "HIGH" || result.status === "LOW" || result.status === "CRITICAL",
+  );
+  const unvalidatedResults = results.filter(
+    (result) => result.status === "UNSPECIFIED",
+  );
 
   return {
     ...mapReportListItem(report),
+    patient: mapPatient(reportJson.patient),
+    confidence: confidences.extraction,
+    confidences,
+    ocrUsed: Boolean(reportJson.source?.used_ocr),
     results,
-    explanations: results.map((result) => ({
-      test_name: result.test_name,
-      severity: result.status,
-      simple_summary:
-        result.status === "NORMAL"
-          ? `${result.test_name} was extracted as ${result.value} ${result.unit}`.trim()
-          : `${result.test_name} was flagged ${result.status.toLowerCase()} with a value of ${result.value} ${result.unit}`.trim(),
-    })),
+    explanations: results.map((result) => {
+      const measured = `${result.value_display} ${result.unit}`.trim();
+      if (result.status === "UNSPECIFIED") {
+        return {
+          test_name: result.test_name,
+          severity: result.status,
+          simple_summary: `${result.test_name} was extracted as ${measured}, but it could not be validated against a configured reference range.`,
+        };
+      }
+      if (result.status === "NORMAL") {
+        return {
+          test_name: result.test_name,
+          severity: result.status,
+          simple_summary: `${result.test_name} was extracted as ${measured}, within the configured reference range.`,
+        };
+      }
+      return {
+        test_name: result.test_name,
+        severity: result.status,
+        simple_summary: `${result.test_name} was flagged ${result.status.toLowerCase()} with a value of ${measured}.`,
+      };
+    }),
     overallSummary: abnormalResults.length
-      ? `${abnormalResults.length} extracted value${abnormalResults.length > 1 ? "s were" : " was"} flagged outside normal status.`
-      : `${results.length} value${results.length === 1 ? "" : "s"} extracted from this report.`,
+      ? `${abnormalResults.length} extracted value${abnormalResults.length > 1 ? "s were" : " was"} outside the reference range${unvalidatedResults.length ? `, and ${unvalidatedResults.length} could not be validated` : ""}.`
+      : unvalidatedResults.length
+        ? `${results.length} value${results.length === 1 ? "" : "s"} extracted; ${unvalidatedResults.length} could not be validated against a reference range.`
+        : `${results.length} value${results.length === 1 ? "" : "s"} extracted from this report.`,
   };
 }
 
@@ -235,9 +407,10 @@ function mapPrescriptionListItem(item: BackendPrescriptionListItem): MedicalDocu
     title: titleFromFilename(item.original_filename),
     category: "Prescription",
     date: uploadedDate(item.uploaded_at),
-    confidence: 1,
+    confidence: null,
+    confidences: emptyConfidences(),
     ocrUsed: false,
-    patient: placeholderPatient(),
+    patient: emptyPatient(),
     medicines: [],
     overallSummary: "Open this prescription to view extracted medications from the backend.",
     urgent: null,
@@ -270,8 +443,8 @@ function mapPrescriptionDetail(prescription: BackendPrescriptionRead): MedicalDo
     ...mapPrescriptionListItem(prescription),
     date: prescription.date || uploadedDate(prescription.uploaded_at),
     patient: {
-      ...placeholderPatient(),
-      referringDoctor: prescription.doctor_name || "Not specified",
+      ...emptyPatient(),
+      referringDoctor: prescription.doctor_name || null,
     },
     medicines,
     overallSummary: `${medicines.length} medication${medicines.length === 1 ? "" : "s"} extracted from this prescription.`,

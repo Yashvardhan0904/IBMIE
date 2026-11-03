@@ -5,32 +5,105 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import httpx
-import pytesseract
-from pdf2image import convert_from_bytes
-from pydantic import BaseModel, Field, field_validator
-from pypdf import PdfReader
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.exceptions import ParserServiceError
 from app.core.logging import get_logger
 from app.schemas.prescription import PrescriptionExtractionSchema
+from app.services.confidence import compute_confidence, load_extraction_config
+from app.services.normalization import (
+    canonical_key,
+    deduplicate_metrics,
+    display_name,
+    normalize_metric_value,
+)
+from app.services.ocr_service import OCRService, OcrResult
+from app.services.patient_extractor import (
+    ExtractedPatient,
+    extract_patient,
+    merge_patients,
+    normalize_gender,
+    parse_age,
+    sanitize_patient_dict,
+)
+from app.services.reference_ranges import (
+    ReferenceRangeEvaluator,
+    apply_reference_ranges,
+)
 
 LOGGER = get_logger(__name__)
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = (
-    "You are an advanced clinical data extraction engine. Your job is to extract all health biomarkers, "
-    "lab tests, and patient parameters from the provided text into a structured JSON format. "
-    "Never drop metrics, values, or units. Return valid JSON matching the schema properties exactly."
+    "You are an advanced clinical data extraction engine. Your job is to extract all health "
+    "biomarkers, lab tests, and patient parameters from the provided text into a structured JSON "
+    "format. Extract only facts that are explicitly present. Never invent, infer, or guess missing "
+    "patient information. Never drop metrics, values, or units. Return valid JSON matching the "
+    "schema properties exactly."
 )
 
 DocumentType = Literal["lab_report", "prescription"]
+MetricStatus = Literal["NORMAL", "HIGH", "LOW", "UNSPECIFIED"]
+StatusSource = Literal["reference_range", "document", "unavailable"]
+LLMCallable = Callable[[str, DocumentType], str]
+
+
+class RangeBounds(BaseModel):
+    low: float | None = None
+    high: float | None = None
+
+
+class ReferenceRangeSchema(BaseModel):
+    low: float | None = None
+    high: float | None = None
+    unit: str | None = None
+    source: str | None = None
+    systolic: RangeBounds | None = None
+    diastolic: RangeBounds | None = None
+
+
+class PatientDemographics(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str | None = None
+    age: int | None = None
+    gender: str | None = None
+    patient_id: str | None = None
+    referring_physician: str | None = None
+
+    @field_validator("age", mode="before")
+    @classmethod
+    def validate_age(cls, value: Any) -> int | None:
+        if value is None or value == "":
+            return None
+        return parse_age(value)
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def validate_gender(cls, value: Any) -> str | None:
+        return normalize_gender(value)
+
+    @field_validator(
+        "name",
+        "patient_id",
+        "referring_physician",
+        mode="before",
+    )
+    @classmethod
+    def clean_optional_text(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        return cleaned or None
 
 
 class MedicalMetric(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+
     biomarker_name: str = Field(
         description="The standardized name of the test or metric (e.g., Hemoglobin, WBC Count, Creatinine)."
     )
@@ -39,75 +112,124 @@ class MedicalMetric(BaseModel):
         description="The abbreviation as it appeared in the report, if any (e.g., Hb, Hgb, RBC).",
     )
     value: str = Field(
-        description="The exact numerical or qualitative value recorded (e.g., 14.2, Negative, 5.5)."
+        description="The exact raw value recorded (e.g., 14.2, Negative, 118/76, 15,200)."
     )
+    value_raw: str | None = Field(
+        default=None,
+        description="Original text value exactly as extracted from the document.",
+    )
+    value_normalized: str | None = Field(
+        default=None,
+        description="Normalized value with units factored out (e.g., 118/76, 15200).",
+    )
+    numeric_value: float | None = Field(
+        default=None,
+        description="Primary numeric value after normalisation, or null if not numeric.",
+    )
+    systolic: float | None = Field(
+        default=None, description="Systolic component for compound blood pressure."
+    )
+    diastolic: float | None = Field(
+        default=None, description="Diastolic component for compound blood pressure."
+    )
+    systolic_status: MetricStatus | None = None
+    diastolic_status: MetricStatus | None = None
     unit: str | None = Field(
         default=None,
-        description="The measurement unit associated with the value (e.g., g/dL, mg/dL, 10^3/uL).",
+        description="The normalized measurement unit (e.g., g/dL, mg/dL, mmHg).",
     )
-    status: Literal["NORMAL", "HIGH", "LOW", "UNSPECIFIED"] = Field(
-        description="The clinical status flag relative to standard reference ranges."
+    unit_raw: str | None = Field(
+        default=None, description="The unit exactly as it appeared in the document."
     )
+    comparator: str | None = Field(
+        default=None, description="Comparator such as '<' or '>' when present."
+    )
+    reference_range: ReferenceRangeSchema | None = None
+    status: MetricStatus = Field(
+        default="UNSPECIFIED",
+        description="Clinical status from the reference-range layer.",
+    )
+    status_source: StatusSource = "unavailable"
+    confidence: float = 0.0
+    canonical_key: str | None = None
 
-    # FIXED: Type casting layer to safeguard against integers/floats returned by LLM
     @field_validator("value", mode="before")
     @classmethod
-    def coerce_value_to_string(cls, v: Any) -> str:
-        if isinstance(v, (int, float)):
-            return str(v)
-        return str(v) if v is not None else ""
+    def coerce_value_to_string(cls, value: Any) -> str:
+        if isinstance(value, (int, float)):
+            return str(value)
+        return str(value) if value is not None else ""
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, value: Any) -> str:
+        status = str(value or "UNSPECIFIED").upper()
+        return status if status in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"} else "UNSPECIFIED"
+
+    @field_validator("biomarker_name", mode="before")
+    @classmethod
+    def clean_name(cls, value: Any) -> str:
+        return str(value or "").strip()
+
+
+class ConfidenceMetrics(BaseModel):
+    ocr: float | None = None
+    extraction: float | None = None
+    completeness: float | None = None
+    field_confidence: dict[str, float] = Field(default_factory=dict)
+    missing_fields: list[str] = Field(default_factory=list)
+    present_fields: list[str] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+
+
+class ExtractionSource(BaseModel):
+    used_ocr: bool = False
+    ocr_confidence: float | None = None
+    page_count: int = 0
+    ocr_pages: list[int] = Field(default_factory=list)
 
 
 class LabReportExtractionSchema(BaseModel):
-    patient_demographics_found: bool = Field(
-        description="True if patient name or metadata is explicitly present on the document."
-    )
-    metrics: list[MedicalMetric] = Field(
-        description="A comprehensive array containing all medical biomarkers extracted from the lab report pages."
-    )
+    patient: PatientDemographics = Field(default_factory=PatientDemographics)
+    patient_demographics_found: bool = False
+    metrics: list[MedicalMetric] = Field(default_factory=list)
+    confidence: ConfidenceMetrics = Field(default_factory=ConfidenceMetrics)
+    source: ExtractionSource = Field(default_factory=ExtractionSource)
 
 
 class ParserService:
-    async def parse_pdf(self, pdf_path: Path, doc_type: DocumentType = "lab_report") -> LabReportExtractionSchema | PrescriptionExtractionSchema:
-        return await asyncio.to_thread(self._parse_sync, pdf_path, doc_type)
+    async def parse_pdf(
+        self,
+        pdf_path: Path,
+        doc_type: DocumentType = "lab_report",
+        *,
+        llm_callable: LLMCallable | None = None,
+    ) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
+        return await asyncio.to_thread(
+            self._parse_sync, pdf_path, doc_type, llm_callable
+        )
 
-    def _parse_sync(self, pdf_path: Path, doc_type: DocumentType) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
+    def _parse_sync(
+        self,
+        pdf_path: Path,
+        doc_type: DocumentType,
+        llm_callable: LLMCallable | None = None,
+    ) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
         try:
-            parsed = parse_medical_pdf(pdf_path, doc_type)
+            return parse_medical_pdf(
+                pdf_path, doc_type, llm_callable=llm_callable
+            )
         except Exception as exc:
+            LOGGER.exception(
+                "Parser pipeline failed",
+                extra={"path": str(pdf_path), "doc_type": doc_type, "error": str(exc)},
+            )
             raise ParserServiceError(str(exc)) from exc
-        return parsed
 
 
 def extract_pdf_text(pdf_path: str | Path) -> str:
-    pdf_file = Path(pdf_path)
-    reader = PdfReader(str(pdf_file))
-    pages: list[str] = []
-
-    for page in reader.pages:
-        text = page.extract_text() or ""
-        if text.strip():
-            pages.append(text.strip())
-
-    native_text = "\n\n".join(pages).strip()
-    
-    if len(native_text) > 50:
-        return native_text
-
-    LOGGER.info(f"Native extraction returned insufficient text ({len(native_text)} chars). Falling back to OCR processing.")
-    ocr_pages: list[str] = []
-    try:
-        file_bytes = pdf_file.read_bytes()
-        images = convert_from_bytes(file_bytes, dpi=150)
-        for i, image in enumerate(images):
-            page_text = pytesseract.image_to_string(image)
-            if page_text.strip():
-                ocr_pages.append(f"--- Page {i+1} ---\n{page_text.strip()}")
-    except Exception as e:
-        LOGGER.error(f"OCR Execution Error while processing {pdf_file.name}: {str(e)}")
-        raise ValueError("Failed to process scanned document text layers.") from e
-
-    return "\n\n".join(ocr_pages).strip()
+    """Backward-compatible text extraction using the shared OCR service."""
+    return OCRService.extract_document(pdf_path).text
 
 
 def build_prompt_by_type(report_text: str, doc_type: DocumentType) -> str:
@@ -122,15 +244,24 @@ def build_prompt_by_type(report_text: str, doc_type: DocumentType) -> str:
             "- Return valid JSON matching the requested prescription schema exactly.\n\n"
             f"Prescription text:\n{report_text}"
         )
-    
+
     return (
         "You are an expert clinical data parsing engine.\n"
-        "Extract every medical test, biomarker, and health metric present in the document text.\n\n"
-        "Strict Formatting Rules:\n"
-        "- Return a root JSON object with two keys: 'patient_demographics_found' (boolean) and 'metrics' (array of objects).\n"
-        "- Each object inside the 'metrics' list MUST have exactly these keys: 'biomarker_name', 'extracted_abbreviation', 'value', 'unit', and 'status'.\n"
-        "- 'status' must be exactly one of: 'NORMAL', 'HIGH', 'LOW', or 'UNSPECIFIED'.\n"
-        "- Ensure absolutely no biomarkers or numerical results are missing or excluded from the output list.\n\n"
+        "Extract every medical test, biomarker, vital sign, and patient demographic present in "
+        "the document text.\n\n"
+        "Strict formatting rules:\n"
+        "- Return a root JSON object with keys: 'patient', 'patient_demographics_found', and 'metrics'.\n"
+        "- 'patient' must be an object with keys: 'name', 'age', 'gender', 'patient_id', and "
+        "'referring_physician'. Use null for every value that is not explicitly written. Never guess.\n"
+        "- 'age' must be an integer number of years, or null. Never use 0 for a missing age.\n"
+        "- 'metrics' must be an array. Each item must have: 'biomarker_name', 'extracted_abbreviation', "
+        "'value', 'unit', and 'status'.\n"
+        "- Preserve the measured value exactly as written, including compound values such as "
+        "'118/76' and values with thousands separators such as '15,200'.\n"
+        "- 'status' is advisory only; use 'UNSPECIFIED' when you are unsure. The application "
+        "re-validates status against configurable reference ranges.\n"
+        "- Do not omit any biomarker or numerical result. Do not duplicate a result.\n"
+        "- Return valid JSON only (no markdown, no prose).\n\n"
         f"Document text:\n{report_text}"
     )
 
@@ -164,88 +295,332 @@ def call_groq(report_text: str, api_key: str, doc_type: DocumentType) -> str:
     return str(response.json()["choices"][0]["message"]["content"])
 
 
+def _invoke_llm(
+    report_text: str,
+    doc_type: DocumentType,
+    llm_callable: LLMCallable | None,
+) -> str:
+    if llm_callable is not None:
+        return llm_callable(report_text, doc_type)
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not set in the environment")
+    return call_groq(report_text, api_key, doc_type)
+
+
 def normalize_groq_output(content: str) -> dict[str, Any]:
+    """Normalise structural differences in LLM JSON output.
+
+    Accepts the current schema, the legacy tests/results shape, and a bare
+    array of metrics. Patient data is preserved rather than collapsed into a
+    boolean.
     """
-    Parses LLM output cleanly. Normalizes structural mapping differences and ensures 
-    safe field representations before explicit validation checks execute.
-    """
-    raw = json.loads(content)
-    
-    # Check if LLM matched our target structure directly
-    if isinstance(raw, dict) and "metrics" in raw and isinstance(raw["metrics"], list):
-        for metric in raw["metrics"]:
-            if isinstance(metric, dict):
-                # Safe fallback to guarantee string data structure mapping
-                if "value" in metric and metric["value"] is not None:
-                    metric["value"] = str(metric["value"])
-                
-                status = str(metric.get("status", "UNSPECIFIED")).upper()
-                metric["status"] = status if status in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"} else "UNSPECIFIED"
-        return {
-            "patient_demographics_found": bool(raw.get("patient_demographics_found", False)),
-            "metrics": raw["metrics"]
-        }
-        
-    # Legacy Fallback pipeline parsing
-    test_items = raw.get("tests") or raw.get("results") or []
-    if not isinstance(test_items, list) and isinstance(raw, list):
+    try:
+        raw = json.loads(content)
+    except json.JSONDecodeError as exc:
+        LOGGER.error(
+            "LLM returned invalid JSON",
+            extra={"snippet": content[:500], "error": str(exc)},
+        )
+        raise RuntimeError(f"LLM returned invalid JSON: {exc}") from exc
+
+    patient_raw: dict[str, Any] | None = None
+    if isinstance(raw, dict):
+        for key in ("patient", "patient_demographics", "demographics", "patient_details"):
+            candidate = raw.get(key)
+            if isinstance(candidate, dict):
+                patient_raw = candidate
+                break
+
+    if isinstance(raw, list):
         test_items = raw
-    elif not isinstance(test_items, list):
-        test_items = []
+        patient_demographics_found = False
+    elif isinstance(raw, dict) and isinstance(raw.get("metrics"), list):
+        test_items = raw["metrics"]
+        patient_demographics_found = bool(
+            raw.get("patient_demographics_found", False) or patient_raw
+        )
+    elif isinstance(raw, dict):
+        test_items = raw.get("tests") or raw.get("results") or []
+        if not isinstance(test_items, list):
+            test_items = []
+        patient_demographics_found = bool(
+            raw.get("patient_demographics_found", False) or patient_raw
+        )
+    else:
+        raise RuntimeError("LLM returned an unsupported JSON value")
 
     metrics: list[dict[str, Any]] = []
     for item in test_items:
         if not isinstance(item, dict):
             continue
 
-        test_name = str(item.get("biomarker_name") or item.get("name") or item.get("test") or "").strip()
+        test_name = str(
+            item.get("biomarker_name") or item.get("name") or item.get("test") or ""
+        ).strip()
         if not test_name:
             continue
-            
+
         abbreviation = item.get("extracted_abbreviation") or item.get("abbreviation")
         match = re.match(r"^(.*)\(([^)]+)\)\s*$", test_name)
         if match:
             test_name = match.group(1).strip()
-            abbreviation = match.group(2).strip() or None
+            candidate = match.group(2).strip()
+            looks_like_abbreviation = (
+                bool(candidate)
+                and len(candidate) <= 8
+                and (candidate.isupper() or " " not in candidate)
+            )
+            if not abbreviation and looks_like_abbreviation:
+                abbreviation = candidate or None
 
         status = str(item.get("status") or "UNSPECIFIED").upper()
         if status not in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"}:
             status = "UNSPECIFIED"
 
-        extracted_value = item.get("value") if item.get("value") is not None else item.get("result", "")
+        extracted_value = (
+            item.get("value")
+            if item.get("value") is not None
+            else item.get("result", "")
+        )
+        systolic = item.get("systolic")
+        diastolic = item.get("diastolic")
+        if (
+            extracted_value in (None, "")
+            and systolic is not None
+            and diastolic is not None
+        ):
+            extracted_value = f"{systolic}/{diastolic}"
 
         metrics.append(
             {
                 "biomarker_name": test_name,
                 "extracted_abbreviation": abbreviation,
-                "value": str(extracted_value),
-                "unit": item.get("unit"),
+                "value": str(extracted_value if extracted_value is not None else ""),
+                "unit": item.get("unit") or item.get("units"),
                 "status": status,
+                "value_raw": item.get("value_raw") or item.get("raw_value"),
+                "unit_raw": item.get("unit_raw"),
+                "value_normalized": item.get("value_normalized"),
+                "numeric_value": item.get("numeric_value"),
+                "systolic": systolic,
+                "diastolic": diastolic,
+                "canonical_key": item.get("canonical_key"),
+                "confidence": item.get("confidence"),
             }
         )
 
     return {
-        "patient_demographics_found": bool(raw.get("patient_demographics_found", False) or raw.get("patient")),
+        "patient": patient_raw,
+        "patient_demographics_found": patient_demographics_found,
         "metrics": metrics,
     }
 
 
-def parse_medical_pdf(pdf_path: str | Path, doc_type: DocumentType) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError("GROQ_API_KEY is not set in the environment")
+def _confidence_for_metric(
+    normalized: Any, canonical: str | None, config: dict[str, Any]
+) -> float:
+    weights = config.get("confidence_weights", {})
+    if canonical == "blood_pressure" and normalized.systolic is not None:
+        return float(weights.get("validated_llm", 0.85))
+    if normalized.numeric_value is not None:
+        if normalized.unit:
+            return float(weights.get("validated_llm", 0.85))
+        return float(weights.get("llm_numeric_no_unit", 0.7))
+    if normalized.value_raw:
+        return float(weights.get("llm_qualitative", 0.6))
+    return float(weights.get("ambiguous", 0.5))
 
+
+def _build_metrics(
+    raw_metrics: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> list[MedicalMetric]:
+    metrics: list[MedicalMetric] = []
+
+    for item in raw_metrics:
+        name = str(item.get("biomarker_name") or "").strip()
+        if not name:
+            continue
+
+        abbreviation = item.get("extracted_abbreviation")
+        canonical = item.get("canonical_key") or canonical_key(name, abbreviation)
+        raw_value = item.get("value")
+        unit = item.get("unit")
+        normalized = normalize_metric_value(
+            raw_value,
+            name=name,
+            abbreviation=abbreviation,
+            unit=unit,
+            canonical=canonical,
+        )
+
+        supplied_systolic = item.get("systolic")
+        supplied_diastolic = item.get("diastolic")
+        if (
+            canonical == "blood_pressure"
+            and supplied_systolic is not None
+            and supplied_diastolic is not None
+            and normalized.systolic is None
+        ):
+            try:
+                normalized.systolic = float(supplied_systolic)
+                normalized.diastolic = float(supplied_diastolic)
+                normalized.numeric_value = normalized.systolic
+                normalized.value_normalized = (
+                    f"{normalized.systolic:g}/{normalized.diastolic:g}"
+                )
+            except (TypeError, ValueError):
+                LOGGER.warning(
+                    "Invalid systolic/diastolic values from LLM",
+                    extra={"metric": name, "systolic": supplied_systolic, "diastolic": supplied_diastolic},
+                )
+
+        status = str(item.get("status") or "UNSPECIFIED").upper()
+        if status not in {"NORMAL", "HIGH", "LOW", "UNSPECIFIED"}:
+            status = "UNSPECIFIED"
+
+        metric = MedicalMetric(
+            biomarker_name=display_name(canonical, name),
+            extracted_abbreviation=abbreviation,
+            value=str(raw_value) if raw_value is not None else "",
+            value_raw=item.get("value_raw") or (str(raw_value) if raw_value is not None else ""),
+            value_normalized=item.get("value_normalized") or normalized.value_normalized,
+            numeric_value=(
+                item.get("numeric_value")
+                if item.get("numeric_value") is not None
+                else normalized.numeric_value
+            ),
+            systolic=normalized.systolic if normalized.systolic is not None else item.get("systolic"),
+            diastolic=normalized.diastolic if normalized.diastolic is not None else item.get("diastolic"),
+            unit=normalized.unit,
+            unit_raw=item.get("unit_raw") or normalized.unit_raw,
+            comparator=normalized.comparator,
+            status=status,
+            status_source="unavailable",
+            confidence=(
+                float(item["confidence"])
+                if item.get("confidence") is not None
+                else _confidence_for_metric(normalized, canonical, config)
+            ),
+            canonical_key=canonical,
+        )
+        metrics.append(metric)
+
+    return metrics
+
+
+def _resolve_patient(report_text: str, raw_patient: Any) -> ExtractedPatient:
+    deterministic = extract_patient(report_text)
+    llm_patient = sanitize_patient_dict(raw_patient if isinstance(raw_patient, dict) else None)
+    merged = merge_patients(deterministic, llm_patient)
+    LOGGER.info(
+        "Patient demographics resolved",
+        extra={
+            "found": merged.has_any,
+            "fields": [key for key, value in merged.to_dict().items() if value is not None],
+        },
+    )
+    return merged
+
+
+def parse_medical_text(
+    report_text: str,
+    doc_type: DocumentType = "lab_report",
+    *,
+    llm_callable: LLMCallable | None = None,
+    evaluator: ReferenceRangeEvaluator | None = None,
+    extraction_config: dict[str, Any] | None = None,
+    ocr_result: OcrResult | None = None,
+) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
+    if not report_text or not report_text.strip():
+        raise ValueError("No readable text was extracted from the document")
+
+    config = extraction_config or load_extraction_config()
+    content = _invoke_llm(report_text, doc_type, llm_callable)
+
+    if doc_type == "prescription":
+        try:
+            return PrescriptionExtractionSchema.model_validate_json(content)
+        except Exception as exc:
+            LOGGER.error(
+                "Prescription extraction validation failed",
+                extra={"snippet": content[:500], "error": str(exc)},
+            )
+            raise RuntimeError(f"Invalid prescription extraction output: {exc}") from exc
+
+    normalized_raw = normalize_groq_output(content)
+    metrics = _build_metrics(normalized_raw.get("metrics", []), config)
+    LOGGER.info("Metrics extracted", extra={"count": len(metrics)})
+
+    patient = _resolve_patient(report_text, normalized_raw.get("patient"))
+
+    metrics = deduplicate_metrics(metrics)
+    apply_reference_ranges(
+        metrics,
+        age=patient.age,
+        gender=patient.gender,
+        evaluator=evaluator,
+    )
+
+    confidence = compute_confidence(
+        metrics,
+        patient,
+        ocr_confidence=ocr_result.ocr_confidence if ocr_result else None,
+        ocr_used=ocr_result.used_ocr if ocr_result else False,
+        doc_type=doc_type,
+        config=config,
+    )
+
+    schema = LabReportExtractionSchema(
+        patient=PatientDemographics(**patient.to_dict()),
+        patient_demographics_found=patient.has_any,
+        metrics=metrics,
+        confidence=ConfidenceMetrics(**confidence),
+        source=ExtractionSource(
+            used_ocr=ocr_result.used_ocr if ocr_result else False,
+            ocr_confidence=ocr_result.ocr_confidence if ocr_result else None,
+            page_count=ocr_result.page_count if ocr_result else 0,
+            ocr_pages=ocr_result.ocr_pages if ocr_result else [],
+        ),
+    )
+
+    LOGGER.info(
+        "Structured extraction completed",
+        extra={
+            "metrics": len(schema.metrics),
+            "demographics_found": schema.patient_demographics_found,
+            "extraction_confidence": schema.confidence.extraction,
+            "completeness": schema.confidence.completeness,
+            "used_ocr": schema.source.used_ocr,
+        },
+    )
+    return schema
+
+
+def parse_medical_pdf(
+    pdf_path: str | Path,
+    doc_type: DocumentType = "lab_report",
+    *,
+    llm_callable: LLMCallable | None = None,
+    evaluator: ReferenceRangeEvaluator | None = None,
+    extraction_config: dict[str, Any] | None = None,
+) -> LabReportExtractionSchema | PrescriptionExtractionSchema:
     pdf_file = Path(pdf_path)
     if not pdf_file.exists():
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    report_text = extract_pdf_text(pdf_file)
+    ocr_result = OCRService.extract_document(pdf_file)
+    report_text = ocr_result.text
     if not report_text:
         raise ValueError("No readable text was extracted from the PDF")
 
-    content = call_groq(report_text, api_key, doc_type)
-    
-    if doc_type == "prescription":
-        return PrescriptionExtractionSchema.model_validate_json(content)
-    
-    return LabReportExtractionSchema.model_validate(normalize_groq_output(content))
+    return parse_medical_text(
+        report_text,
+        doc_type,
+        llm_callable=llm_callable,
+        evaluator=evaluator,
+        extraction_config=extraction_config,
+        ocr_result=ocr_result,
+    )

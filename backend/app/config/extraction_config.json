@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "expected_fields": {
+    "lab_report": [
+      "patient.name",
+      "patient.age",
+      "patient.gender",
+      "patient.referring_physician",
+      "temperature",
+      "pulse",
+      "respiratory_rate",
+      "blood_pressure",
+      "spo2",
+      "hemoglobin",
+      "wbc",
+      "neutrophils",
+      "crp"
+    ]
+  },
+  "confidence_weights": {
+    "deterministic": 0.95,
+    "validated_llm": 0.85,
+    "llm_numeric": 0.8,
+    "llm_numeric_no_unit": 0.7,
+    "llm_qualitative": 0.6,
+    "ambiguous": 0.5
+  }
+}

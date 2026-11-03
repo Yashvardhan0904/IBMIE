@@ -1,0 +1,7 @@
+--- Page 1 ---
+VITAL SIGNS
+Temperature 37.0 °C
+Pulse 78 beats/min
+Respiratory rate 16 breaths/min
+Blood pressure 120/80 mmHg
+SpO2 98 %

@@ -11,6 +11,10 @@ import { StatusPill, VitalisLine, Card } from "./UI";
 import { MedicalDocument } from "@/lib/types";
 import ExplainChat from "./ExplainChat";
 
+function percent(value: number | null | undefined, fallback = "—") {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : fallback;
+}
+
 export default function ReportDetail({ doc }: { doc: MedicalDocument }) {
   const [tab, setTab] = useState<"simple" | "data">("simple");
 
@@ -36,10 +40,16 @@ export default function ReportDetail({ doc }: { doc: MedicalDocument }) {
             {doc.category} · captured {doc.date} · {doc.ocrUsed ? "OCR pipeline" : "digital text layer"}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg px-3.5 py-2" style={{ background: T.card, border: `1px solid ${T.border}` }}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-3.5 py-2" style={{ background: T.card, border: `1px solid ${T.border}` }}>
           <ShieldCheck size={15} color={T.primary} />
           <span className="text-[12.5px] font-medium" style={{ color: T.inkSoft, fontFamily: "var(--font-body)" }}>
-            {Math.round(doc.confidence * 100)}% extraction confidence
+            OCR {percent(doc.confidences?.ocr, doc.ocrUsed ? "—" : "Digital text")}
+          </span>
+          <span className="text-[12.5px] font-medium" style={{ color: T.inkSoft, fontFamily: "var(--font-body)" }}>
+            Extraction {percent(doc.confidences?.extraction)}
+          </span>
+          <span className="text-[12.5px] font-medium" style={{ color: T.inkSoft, fontFamily: "var(--font-body)" }}>
+            Completeness {percent(doc.confidences?.completeness)}
           </span>
         </div>
       </div>
@@ -58,9 +68,23 @@ export default function ReportDetail({ doc }: { doc: MedicalDocument }) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: User, label: "Patient", value: doc.patient.patientId },
-          { icon: CalendarDays, label: "Age / Gender", value: `${doc.patient.age} · ${doc.patient.gender}` },
-          { icon: Stethoscope, label: "Referring physician", value: doc.patient.referringDoctor },
+          {
+            icon: User,
+            label: "Patient",
+            value:
+              [doc.patient.name, doc.patient.patientId].filter(Boolean).join(" · ") ||
+              "Not specified",
+          },
+          {
+            icon: CalendarDays,
+            label: "Age / Gender",
+            value: `${doc.patient.age ?? "Not specified"} · ${doc.patient.gender ?? "Not specified"}`,
+          },
+          {
+            icon: Stethoscope,
+            label: "Referring physician",
+            value: doc.patient.referringDoctor ?? "Not specified",
+          },
           { icon: Clock, label: "Report date", value: doc.date },
         ].map((f) => (
           <Card key={f.label} className="p-3.5">
@@ -133,10 +157,20 @@ export default function ReportDetail({ doc }: { doc: MedicalDocument }) {
                       <div key={r.test_name} className="grid grid-cols-1 md:grid-cols-[1.3fr_0.9fr_1.4fr] gap-4 md:gap-6 px-5 py-4 items-center">
                         <div>
                           <div className="text-[13.5px] font-medium" style={{ color: T.ink, fontFamily: "var(--font-body)" }}>{r.test_name}</div>
-                          <div className="text-[11.5px]" style={{ color: T.muted }}>{r.sample_type}{r.remarks ? ` · ${r.remarks}` : ""}</div>
+                          <div className="text-[11.5px]" style={{ color: T.muted }}>
+                            {[
+                              r.sample_type,
+                              r.remarks,
+                              r.confidence !== null && r.confidence !== undefined
+                                ? `Field confidence ${Math.round(r.confidence * 100)}%`
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="text-[16px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-mono)" }}>{r.value}</span>
+                          <span className="text-[16px] font-semibold" style={{ color: T.ink, fontFamily: "var(--font-mono)" }}>{r.value_display ?? (r.value ?? "—")}</span>
                           <span className="text-[12px]" style={{ color: T.muted, fontFamily: "var(--font-mono)" }}>{r.unit}</span>
                           <StatusPill status={r.status} />
                         </div>

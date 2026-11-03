@@ -1,20 +1,33 @@
 import { StatusKey } from "./tokens";
 
+export interface RangeBounds {
+  low: number | null;
+  high: number | null;
+}
+
 export interface ReferenceRange {
   low: number | null;
   high: number | null;
+  unit?: string | null;
+  source?: string | null;
+  systolic?: RangeBounds | null;
+  diastolic?: RangeBounds | null;
 }
 
 export interface LabResult {
   test_name: string;
   category: string;
-  value: number;
+  value: number | null;
+  value_display?: string;
+  systolic?: number | null;
+  diastolic?: number | null;
   unit: string;
   reference_range: ReferenceRange;
   status: StatusKey;
   flag: string;
   sample_type: string;
   remarks: string;
+  confidence?: number | null;
 }
 
 export interface Medicine {
@@ -28,11 +41,17 @@ export interface Medicine {
 }
 
 export interface Patient {
-  name: string;
-  age: number;
-  gender: string;
-  patientId: string;
-  referringDoctor: string;
+  name: string | null;
+  age: number | null;
+  gender: string | null;
+  patientId: string | null;
+  referringDoctor: string | null;
+}
+
+export interface DocumentConfidences {
+  ocr: number | null;
+  extraction: number | null;
+  completeness: number | null;
 }
 
 export interface PlainExplanation {
@@ -47,7 +66,8 @@ export interface MedicalDocument {
   title: string;
   category: string;
   date: string;
-  confidence: number;
+  confidence: number | null;
+  confidences?: DocumentConfidences;
   ocrUsed: boolean;
   patient: Patient;
   results?: LabResult[];

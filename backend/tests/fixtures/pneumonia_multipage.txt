@@ -1,0 +1,22 @@
+--- Page 1 ---
+CITY GENERAL HOSPITAL
+PATIENT DETAILS
+Patient Name: SAMPLE PATIENT
+Patient ID: DEMO-PT-2026-0417
+Age / Sex: 58 years / Male
+Referring Clinician: Dr. A. Sharma
+
+VITAL SIGNS
+Temperature 38.6 °C
+Pulse 108 beats/min
+Respiratory rate 26 breaths/min
+Blood pressure 118/76 mmHg
+SpOz (room air) 91 %
+
+--- Page 2 ---
+LABORATORY INVESTIGATIONS
+Hemoglobin 13.4 g/dL
+Total WBC count 15,200 cells/uL
+Neutrophils 82 %
+CRP 68 mg/L
+Blood pressure 118/76 mmHg

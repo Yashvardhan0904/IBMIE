@@ -1,0 +1,47 @@
+CITY GENERAL HOSPITAL
+DEPARTMENT OF INTERNAL MEDICINE | RESPIRATORY UNIT
+12 Health Avenue, New Delhi, India | Tel: 011-4000-0000
+
+PATIENT HEALTH REPORT
+For OCR / document-parsing testing only — not a real medical record
+
+PATIENT DETAILS
+Patient Name: SAMPLE PATIENT Patient ID: DEMO-PT-2026-0417
+Age / Sex: 58 years / Male Date of Visit: 03-Nov-2026
+Department: Emergency Medicine Report No.: DEMO-PNEU-0001
+Referring Clinician: Dr. A. Sharma (Fictional) Status: Sample / Synthetic
+
+PRESENTING COMPLAINTS & HISTORY
+Chief complaints: Fever, productive cough, and shortness of breath for 4 days.
+Associated symptoms: Chills, fatigue, right-sided chest discomfort on coughing.
+Relevant history: No known drug allergies reported in this sample.
+
+Examination: Alert and oriented. Crackles heard over the right lower lung field.
+
+VITAL SIGNS
+Parameter Observed Value Reference / Note Unit
+Temperature 38.6 36.1-37.2 °C
+Pulse 108 60-100 beats/min
+Respiratory rate 26 12-20 breaths/min
+Blood pressure 118/76 Typical adult range mmHg
+SpOz (room air) 91 Usually = 95 %
+
+LABORATORY INVESTIGATIONS
+Test Result Reference / Note Unit
+Hemoglobin 13.4 13.0-17.0 g/dL
+Total WBC count 15,200 4,000-11,000 cells/uL
+Neutrophils 82 40-75 %
+CRP 68 <5 mg/L
+
+RADIOLOGY
+Chest X-ray (PA view):
+Patchy air-space opacity in the right lower zone, suggestive of infective consolidation.
+
+Impression: Findings are compatible with right lower lobe pneumonia.
+
+ASSESSMENT & PLAN
+Provisional diagnosis: Community-acquired pneumonia (right lower lobe).
+Plan: Clinical review, oxygen saturation monitoring, hydration, and clinician-directed treatment.
+
+Prepared: 03-Nov-2026 16:00 IST Authorized Signatory:
+THIS DOCUMENT IS ENTIRELY FICTIONAL AND GENERATED FOR OCR TESTING.

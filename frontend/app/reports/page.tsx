@@ -40,7 +40,7 @@ export default async function ReportsPage() {
                 <td className="px-5 py-3.5 text-[12.5px]" style={{ color: T.inkSoft }}>{d.category}</td>
                 <td className="px-5 py-3.5 text-[12.5px]" style={{ color: T.inkSoft, fontFamily: "var(--font-mono)" }}>{d.date}</td>
                 <td className="px-5 py-3.5 text-[12.5px]" style={{ color: T.inkSoft }}>{d.ocrUsed ? "OCR" : "Digital text"}</td>
-                <td className="px-5 py-3.5 text-[12.5px]" style={{ color: T.inkSoft, fontFamily: "var(--font-mono)" }}>{Math.round(d.confidence * 100)}%</td>
+                <td className="px-5 py-3.5 text-[12.5px]" style={{ color: T.inkSoft, fontFamily: "var(--font-mono)" }}>{typeof d.confidence === "number" ? `${Math.round(d.confidence * 100)}%` : "—"}</td>
                 <td className="px-5 py-3.5 text-right">
                   <Link href={`/reports/${d.id}`} className="text-[12.5px] font-semibold" style={{ color: T.primary }}>Open →</Link>
                 </td>
